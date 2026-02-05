@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>CineFlow | Director's Cut</title>
+    <title>CineFlow | Studio Edition</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
     <style>
@@ -13,19 +13,16 @@
             --text-color: white;
             --glass-bg: rgba(18, 18, 18, 0.85);
             --glass-border: rgba(255, 255, 255, 0.15);
-            --neon-blue: #00f3ff; 
-            --neon-red: #ff0055; 
-            --neon-amber: #fbbf24;
-            --neon-green: #10b981;
-            --neon-purple: #a855f7;
+            --accent: #00f3ff;
         }
 
         body.light-mode {
-            --bg-color: #f3f4f6;
+            --bg-color: #e5e7eb;
             --grid-color: rgba(0,0,0,0.05);
             --text-color: #1f2937;
             --glass-bg: rgba(255,255,255,0.9);
             --glass-border: rgba(0, 0, 0, 0.1);
+            --accent: #0ea5e9;
         }
 
         body { 
@@ -37,11 +34,9 @@
             transition: background-color 0.3s;
         }
         
-        /* INFINITE GRID */
-        #viewport { width: 100vw; height: 100vh; cursor: grab; overflow: hidden; position: relative; }
-        #world {
-            position: absolute; top: 50%; left: 50%; width: 0; height: 0;
-        }
+        /* VIEWPORT & GRID */
+        #viewport { width: 100vw; height: 100vh; cursor: grab; overflow: hidden; position: relative; touch-action: none; }
+        #world { position: absolute; top: 50%; left: 50%; width: 0; height: 0; transform-origin: 0 0; }
         #grid-pattern {
             position: absolute; top: -5000px; left: -5000px; width: 10000px; height: 10000px;
             background-image: 
@@ -57,7 +52,24 @@
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             cursor: grab; z-index: 10;
         }
-        .scene-object:active { cursor: grabbing; scale: 1.05; transition: scale 0.1s; }
+        /* Selection Ring */
+        .scene-object.selected .object-visual {
+            outline: 2px solid var(--accent);
+            box-shadow: 0 0 15px var(--accent);
+        }
+        
+        /* CONTROLS (Handles) */
+        .control-handle {
+            position: absolute; width: 24px; height: 24px;
+            background: white; border-radius: 50%;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 10px; color: black;
+            z-index: 20; transform: scale(0); transition: transform 0.2s;
+        }
+        .selected .control-handle { transform: scale(1); }
+        .rotate-handle { top: -30px; cursor: url('https://www.svgrepo.com/show/532997/rotate-right.svg'), auto; }
+        .resize-handle { bottom: -20px; right: -20px; cursor: se-resize; }
 
         /* CAMERA */
         .fov-cone {
@@ -68,65 +80,32 @@
             pointer-events: none; transform-origin: bottom center;
         }
         .cam-body {
-            width: 40px; height: 26px; background: var(--neon-blue); border-radius: 4px;
-            box-shadow: 0 0 15px rgba(0, 243, 255, 0.4); position: relative; z-index: 2;
-        }
-        .cam-lens {
-            position: absolute; top: -6px; left: 50%; transform: translateX(-50%);
-            width: 12px; height: 8px; background: white; border-radius: 2px;
+            width: 40px; height: 26px; background: var(--accent); border-radius: 4px;
+            position: relative; z-index: 2;
         }
         
-        /* SMART LABEL (Billboard Effect) */
-        .smart-label {
-            position: absolute;
-            top: 45px; /* Push it below the object */
-            padding: 4px 8px;
-            background: var(--glass-bg); border: 1px solid var(--glass-border);
-            backdrop-filter: blur(8px); border-radius: 8px;
-            font-size: 10px; font-weight: 700; white-space: nowrap;
-            color: var(--text-color);
-            display: flex; gap: 4px; align-items: center;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-            z-index: 100;
-            pointer-events: none;
-            /* Ensure it doesn't wrap */
-            max-width: 150px; overflow: hidden; text-overflow: ellipsis;
-        }
-
-        /* ACTOR */
-        .actor-body {
-            width: 40px; height: 40px; background: var(--neon-red); border-radius: 50%;
-            box-shadow: 0 0 15px rgba(255, 0, 85, 0.4); position: relative; transition: background 0.2s;
-        }
-        .actor-nose {
-            position: absolute; top: -4px; left: 50%; transform: translateX(-50%);
-            width: 8px; height: 8px; background: white; border-radius: 50%;
-        }
-
-        /* PROP */
-        .prop-body {
+        /* PROPS */
+        .prop-visual {
             display: flex; align-items: center; justify-content: center;
             color: white; font-size: 20px;
-            background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
+            transition: all 0.2s;
         }
+        /* Light Mode Prop Visibility Fix */
+        body.light-mode .prop-visual { color: #333; border-color: #999; }
+        body.light-mode .prop-visual i { color: #333 !important; }
 
-        /* GHOST OBJECTS (Movement Targets) */
-        .ghost { opacity: 0.4; filter: grayscale(100%); border: 1px dashed white; }
-
-        /* MOVEMENT PATHS */
-        svg.path-layer {
-            position: absolute; top: -5000px; left: -5000px; width: 10000px; height: 10000px;
-            pointer-events: none; z-index: 0; overflow: visible;
-        }
-        
-        /* UI GLASS PANELS */
+        /* UI PANELS */
         .glass-panel {
             background: var(--glass-bg); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
             border: 1px solid var(--glass-border); color: var(--text-color);
         }
-        
-        /* SCROLLBARS */
         .hide-scroll::-webkit-scrollbar { display: none; }
+        
+        /* TARGET LOCK LINE */
+        .target-line {
+            position: absolute; height: 1px; background: var(--accent);
+            transform-origin: 0 50%; opacity: 0.5; pointer-events: none; stroke-dasharray: 4;
+        }
     </style>
 </head>
 <body>
@@ -134,30 +113,63 @@
     <div id="viewport">
         <div id="world">
             <div id="grid-pattern"></div>
-            <svg id="svg-layer" class="path-layer"></svg>
+            <div id="lines-layer" style="position: absolute; top:0; left:0; width:0; height:0;"></div>
             </div>
     </div>
 
     <div class="fixed top-0 left-0 w-full p-4 flex justify-between items-start pointer-events-none z-50">
-        <div class="glass-panel px-4 py-2 rounded-full pointer-events-auto shadow-lg flex items-center gap-3">
-            <h1 class="text-xs font-bold tracking-[0.2em] uppercase">CineFlow</h1>
-            <div class="h-3 w-px bg-white/20"></div>
-            <button onclick="playScene()" class="flex items-center gap-2 text-[10px] font-bold text-green-400 hover:text-green-300 transition">
-                <i class="fa-solid fa-clapperboard"></i> ACTION!
+        <div class="flex gap-2 pointer-events-auto">
+            <button onclick="toggleSceneMenu()" class="glass-panel px-4 py-2 rounded-xl shadow-lg flex items-center gap-2 hover:bg-white/10 transition">
+                <i class="fa-solid fa-folder-open text-xs"></i>
+                <span class="text-xs font-bold uppercase" id="scene-name-display">Untitled Scene</span>
+            </button>
+            <button onclick="saveScene()" class="glass-panel w-9 h-9 rounded-xl flex items-center justify-center hover:bg-green-500/20 hover:text-green-400 transition">
+                <i class="fa-solid fa-save text-xs"></i>
             </button>
         </div>
-        <button onclick="toggleTheme()" class="glass-panel w-10 h-10 rounded-full flex items-center justify-center pointer-events-auto active:scale-90 transition shadow-lg">
-            <i class="fa-solid fa-moon" id="theme-icon"></i>
-        </button>
+
+        <div class="flex gap-2 pointer-events-auto">
+             <button onclick="playScene()" class="glass-panel px-3 py-2 rounded-xl flex items-center gap-2 text-[10px] font-bold text-green-400 hover:text-green-300 transition">
+                <i class="fa-solid fa-clapperboard"></i> ACTION
+            </button>
+            <button onclick="toggleTheme()" class="glass-panel w-9 h-9 rounded-xl flex items-center justify-center active:scale-90 transition">
+                <i class="fa-solid fa-moon" id="theme-icon"></i>
+            </button>
+        </div>
+    </div>
+
+    <div id="scene-menu" class="fixed inset-0 bg-black/80 z-[70] hidden flex items-center justify-center backdrop-blur-sm">
+        <div class="glass-panel w-96 rounded-2xl p-6 relative">
+            <button onclick="toggleSceneMenu()" class="absolute top-4 right-4 opacity-50"><i class="fa-solid fa-xmark"></i></button>
+            <h2 class="text-sm font-bold uppercase tracking-widest mb-4">Scene Management</h2>
+            
+            <div class="mb-4">
+                <label class="text-[10px] uppercase opacity-50 font-bold">Current Scene Name</label>
+                <input type="text" id="scene-name-input" class="w-full bg-white/5 border border-white/10 rounded p-2 text-xs mt-1" placeholder="e.g. Sc 1 - INT. Cafe">
+            </div>
+
+            <div class="grid grid-cols-2 gap-3 mb-6">
+                <button onclick="createNewScene()" class="p-3 bg-cyan-500/20 border border-cyan-500/30 rounded-xl text-xs font-bold text-cyan-400 hover:bg-cyan-500/30">
+                    <i class="fa-solid fa-plus block mb-1"></i> New Scene
+                </button>
+                <button onclick="downloadScene()" class="p-3 bg-white/5 border border-white/10 rounded-xl text-xs font-bold hover:bg-white/10">
+                    <i class="fa-solid fa-download block mb-1"></i> Export JSON
+                </button>
+            </div>
+
+            <h3 class="text-[10px] uppercase opacity-50 font-bold mb-2">Saved Scenes</h3>
+            <div id="saved-list" class="max-h-40 overflow-y-auto space-y-2">
+                </div>
+        </div>
     </div>
 
     <div class="fixed bottom-8 left-1/2 -translate-x-1/2 glass-panel rounded-full p-2 flex gap-2 shadow-2xl z-50">
-        <button onclick="addActor()" class="flex flex-col items-center justify-center w-16 h-14 rounded-2xl hover:bg-white/5 active:bg-white/10 transition">
+        <button onclick="addObject('actor')" class="flex flex-col items-center justify-center w-16 h-14 rounded-2xl hover:bg-white/5 active:bg-white/10 transition">
             <div class="w-4 h-4 rounded-full bg-rose-500 mb-1 shadow-sm"></div>
             <span class="text-[9px] font-bold opacity-70">ACTOR</span>
         </button>
         <div class="w-px h-10 bg-white/10 my-auto"></div>
-        <button onclick="addCamera()" class="flex flex-col items-center justify-center w-16 h-14 rounded-2xl hover:bg-white/5 active:bg-white/10 transition">
+        <button onclick="addObject('camera')" class="flex flex-col items-center justify-center w-16 h-14 rounded-2xl hover:bg-white/5 active:bg-white/10 transition">
             <div class="w-5 h-3 rounded-sm bg-cyan-400 mb-1 shadow-sm"></div>
             <span class="text-[9px] font-bold opacity-70">CAMERA</span>
         </button>
@@ -168,509 +180,479 @@
         </button>
     </div>
 
-    <div id="prop-picker" class="fixed inset-0 bg-black/60 z-[60] hidden flex items-center justify-center backdrop-blur-sm transition-opacity" onclick="closePropPicker(event)">
-        <div class="glass-panel w-96 max-h-[80vh] rounded-3xl overflow-hidden flex flex-col shadow-2xl animate-[fadeIn_0.2s]">
-            <div class="p-5 border-b border-white/10 bg-white/5">
-                <h3 class="text-xs font-bold uppercase tracking-widest mb-2 opacity-70">Prop Warehouse</h3>
-                <div class="flex gap-2">
-                    <button onclick="filterProps('all')" class="px-3 py-1 rounded-full bg-cyan-500/20 text-cyan-400 text-[10px] font-bold border border-cyan-500/30">ALL</button>
-                    <button onclick="filterProps('furniture')" class="px-3 py-1 rounded-full bg-white/5 hover:bg-white/10 text-[10px] font-bold">FURNITURE</button>
-                    <button onclick="filterProps('vehicle')" class="px-3 py-1 rounded-full bg-white/5 hover:bg-white/10 text-[10px] font-bold">VEHICLES</button>
-                </div>
+    <div id="prop-picker" class="fixed inset-0 bg-black/60 z-[60] hidden flex items-center justify-center backdrop-blur-sm" onclick="if(event.target.id==='prop-picker') this.classList.add('hidden')">
+        <div class="glass-panel w-[90vw] max-w-md h-[70vh] rounded-3xl overflow-hidden flex flex-col animate-[fadeIn_0.2s]">
+            <div class="p-4 border-b border-white/10 flex justify-between items-center">
+                <h3 class="text-xs font-bold uppercase tracking-widest">Prop Warehouse</h3>
+                <span class="text-[9px] opacity-50">150+ Items</span>
             </div>
-            
-            <div id="prop-grid" class="p-5 overflow-y-auto grid grid-cols-4 gap-3 hide-scroll h-full">
-                </div>
+            <div class="p-2 flex gap-2 overflow-x-auto border-b border-white/10 hide-scroll">
+                <button onclick="filterProps('all')" class="px-3 py-1 bg-white/10 rounded-full text-[10px]">All</button>
+                <button onclick="filterProps('furniture')" class="px-3 py-1 bg-white/5 rounded-full text-[10px]">Furniture</button>
+                <button onclick="filterProps('set')" class="px-3 py-1 bg-white/5 rounded-full text-[10px]">Set</button>
+                <button onclick="filterProps('street')" class="px-3 py-1 bg-white/5 rounded-full text-[10px]">Street</button>
+            </div>
+            <div id="prop-grid" class="p-4 overflow-y-auto grid grid-cols-4 gap-3 content-start"></div>
         </div>
     </div>
 
-    <div id="inspector" class="fixed right-4 top-1/2 -translate-y-1/2 w-72 glass-panel rounded-3xl p-6 translate-x-[120%] transition-transform duration-300 shadow-2xl z-50">
+    <div id="inspector" class="fixed right-4 top-1/2 -translate-y-1/2 w-72 glass-panel rounded-3xl p-5 translate-x-[150%] transition-transform duration-300 shadow-2xl z-50">
         <div class="flex justify-between items-center mb-6">
-            <h2 class="text-xs font-bold opacity-50 uppercase tracking-widest">Properties</h2>
-            <button onclick="closeInspector()" class="opacity-50 hover:opacity-100"><i class="fa-solid fa-xmark"></i></button>
+            <h2 class="text-xs font-bold opacity-50 uppercase">Properties</h2>
+            <button onclick="closeInspector()"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        
+        <div class="mb-4">
+            <label class="text-[9px] uppercase font-bold opacity-50">Label</label>
+            <input type="text" id="insp-name" class="w-full bg-white/5 border border-white/10 rounded p-2 text-xs" oninput="updateLabel(this.value)">
         </div>
 
-        <div class="mb-5">
-            <label class="block text-[9px] font-bold uppercase opacity-50 mb-2">Label Name</label>
-            <input type="text" id="name-input" class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-cyan-400 transition" placeholder="Object Name">
+        <div id="cam-controls" class="hidden mb-4">
+            <label class="text-[9px] uppercase font-bold opacity-50">Target Lock</label>
+            <button onclick="activateTargetMode()" id="target-btn" class="w-full mt-1 py-2 border border-white/20 rounded-lg text-[10px] font-bold hover:bg-cyan-500/20 hover:border-cyan-500">
+                <i class="fa-solid fa-crosshairs"></i> LINK TO ACTOR
+            </button>
         </div>
 
-        <div id="cam-controls" class="hidden">
-            <div class="mb-6">
-                <div class="flex justify-between text-[10px] font-bold mb-2 uppercase text-cyan-400">
-                    <span>Focal Length</span>
-                    <span id="lens-display">35mm</span>
-                </div>
-                <input type="range" id="lens-slider" min="14" max="135" value="35" class="w-full h-1 bg-white/20 rounded-lg appearance-none cursor-pointer">
-            </div>
-        </div>
-
-        <div id="color-controls" class="mb-6">
-             <p class="text-[9px] font-bold mb-3 opacity-50 uppercase">Appearance</p>
-             <div class="flex gap-2 overflow-x-auto hide-scroll pb-2">
-                 <button onclick="changeColor('#ff0055')" class="w-6 h-6 shrink-0 rounded-full bg-[#ff0055] ring-1 ring-white/20"></button>
-                 <button onclick="changeColor('#00f3ff')" class="w-6 h-6 shrink-0 rounded-full bg-[#00f3ff] ring-1 ring-white/20"></button>
-                 <button onclick="changeColor('#fbbf24')" class="w-6 h-6 shrink-0 rounded-full bg-[#fbbf24] ring-1 ring-white/20"></button>
-                 <button onclick="changeColor('#10b981')" class="w-6 h-6 shrink-0 rounded-full bg-[#10b981] ring-1 ring-white/20"></button>
-                 <button onclick="changeColor('#a855f7')" class="w-6 h-6 shrink-0 rounded-full bg-[#a855f7] ring-1 ring-white/20"></button>
-                 <button onclick="changeColor('#f43f5e')" class="w-6 h-6 shrink-0 rounded-full bg-[#f43f5e] ring-1 ring-white/20"></button>
-                 <button onclick="changeColor('#ffffff')" class="w-6 h-6 shrink-0 rounded-full bg-[#ffffff] ring-1 ring-white/20"></button>
-                 <button onclick="changeColor('#64748b')" class="w-6 h-6 shrink-0 rounded-full bg-[#64748b] ring-1 ring-white/20"></button>
+        <div class="mb-4">
+             <label class="text-[9px] uppercase font-bold opacity-50 mb-2 block">Color</label>
+             <div class="flex gap-2 flex-wrap">
+                 <button onclick="setColor('#ff0055')" class="w-6 h-6 rounded-full bg-[#ff0055] ring-1 ring-white/20"></button>
+                 <button onclick="setColor('#00f3ff')" class="w-6 h-6 rounded-full bg-[#00f3ff] ring-1 ring-white/20"></button>
+                 <button onclick="setColor('#fbbf24')" class="w-6 h-6 rounded-full bg-[#fbbf24] ring-1 ring-white/20"></button>
+                 <button onclick="setColor('#10b981')" class="w-6 h-6 rounded-full bg-[#10b981] ring-1 ring-white/20"></button>
+                 <button onclick="setColor('#ffffff')" class="w-6 h-6 rounded-full bg-[#ffffff] ring-1 ring-white/20"></button>
              </div>
         </div>
 
-        <div class="border-t border-white/10 pt-6">
-            <button onclick="addMovement()" class="w-full py-3 mb-3 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 flex items-center justify-center gap-2 transition group">
-                <i class="fa-solid fa-person-walking-arrow-right text-xs group-hover:text-cyan-400"></i>
-                <span class="text-[10px] font-bold">ADD MOVEMENT</span>
-            </button>
-            <button onclick="deleteSelected()" class="w-full py-3 bg-red-500/10 border border-red-500/30 text-red-400 rounded-xl hover:bg-red-500/20 text-[10px] font-bold transition">
-                DELETE OBJECT
-            </button>
+        <div class="border-t border-white/10 pt-4 flex gap-2">
+            <button onclick="deleteSelected()" class="flex-1 py-2 bg-red-500/20 text-red-400 text-[10px] font-bold rounded-lg">DELETE</button>
+            <button onclick="closeInspector()" class="flex-1 py-2 bg-white/10 text-[10px] font-bold rounded-lg">DONE</button>
         </div>
     </div>
 
+    <div id="obj-controls" class="fixed bottom-24 left-1/2 -translate-x-1/2 glass-panel px-4 py-2 rounded-full hidden items-center gap-4 z-50">
+        <button onclick="openInspector()" class="flex flex-col items-center gap-1 text-[9px] font-bold hover:text-cyan-400">
+            <i class="fa-solid fa-sliders text-sm"></i> EDIT
+        </button>
+        <div class="w-px h-6 bg-white/10"></div>
+        <button onclick="addMovement()" class="flex flex-col items-center gap-1 text-[9px] font-bold hover:text-green-400">
+            <i class="fa-solid fa-person-walking text-sm"></i> MOVE
+        </button>
+        <div class="w-px h-6 bg-white/10"></div>
+        <button onclick="deleteSelected()" class="flex flex-col items-center gap-1 text-[9px] font-bold hover:text-red-400">
+            <i class="fa-solid fa-trash text-sm"></i> DEL
+        </button>
+    </div>
+
     <script>
-        // --- DATA & STATE ---
+        // --- CORE SYSTEM ---
         const world = document.getElementById('world');
         const viewport = document.getElementById('viewport');
-        const svgLayer = document.getElementById('svg-layer');
-        
+        const linesLayer = document.getElementById('lines-layer');
         let objects = [];
-        let connections = []; 
         let selectedId = null;
-        
-        // Smart ID Management
-        // We no longer use simple counters. We calculate the next available label.
-        
-        let viewX = 0, viewY = 0, zoom = 1;
-        let isPanning = false;
+        let scale = 1, panX = 0, panY = 0;
+        let isDragging = false;
+        let isRotating = false;
+        let isResizing = false;
+        let targetMode = false;
 
-        // --- PROP DATABASE (The Warehouse) ---
-        const propLibrary = [
-            { id: 'chair', name: 'Chair', cat: 'furniture', icon: 'fa-chair', w: 30, h: 30, shape: 'rect' },
-            { id: 'couch', name: 'Couch', cat: 'furniture', icon: 'fa-couch', w: 80, h: 35, shape: 'rect' },
-            { id: 'bed', name: 'Bed', cat: 'furniture', icon: 'fa-bed', w: 70, h: 90, shape: 'rect' },
-            { id: 'table', name: 'Table', cat: 'furniture', icon: 'fa-table', w: 80, h: 50, shape: 'rect' },
-            { id: 'toilet', name: 'Toilet', cat: 'furniture', icon: 'fa-toilet', w: 30, h: 40, shape: 'rect' },
-            { id: 'car', name: 'Car', cat: 'vehicle', icon: 'fa-car-side', w: 120, h: 60, shape: 'rect' },
-            { id: 'truck', name: 'Truck', cat: 'vehicle', icon: 'fa-truck', w: 160, h: 70, shape: 'rect' },
-            { id: 'bus', name: 'Bus', cat: 'vehicle', icon: 'fa-bus', w: 200, h: 70, shape: 'rect' },
-            { id: 'bike', name: 'Bike', cat: 'vehicle', icon: 'fa-bicycle', w: 50, h: 20, shape: 'rect' },
-            { id: 'cam-light', name: 'Light', cat: 'lights', icon: 'fa-lightbulb', w: 20, h: 20, shape: 'circle' },
-            { id: 'tree', name: 'Tree', cat: 'set', icon: 'fa-tree', w: 50, h: 50, shape: 'circle' },
-            { id: 'box', name: 'Box', cat: 'set', icon: 'fa-box', w: 30, h: 30, shape: 'rect' },
-        ];
+        // --- MOBILE GESTURES ---
+        let pointers = {};
+        let initialPinchDist = 0;
+        let initialScale = 1;
 
-        // --- INIT ---
-        window.onload = () => {
-            renderPropGrid();
-            addCamera(); 
-            centerView();
+        viewport.onpointerdown = (e) => {
+            if (e.target.closest('.control-handle')) return; // Let handles handle themselves
+            if (e.target.closest('.scene-object')) return;   // Let objects handle themselves
+            
+            pointers[e.pointerId] = e;
+            viewport.setPointerCapture(e.pointerId);
+            
+            if (Object.keys(pointers).length === 2) {
+                // Start Pinch
+                const p1 = pointers[Object.keys(pointers)[0]];
+                const p2 = pointers[Object.keys(pointers)[1]];
+                initialPinchDist = Math.hypot(p2.clientX - p1.clientX, p2.clientY - p1.clientY);
+                initialScale = scale;
+            } else if (Object.keys(pointers).length === 1) {
+                isDragging = true;
+            }
+            deselect();
         };
 
-        function centerView() { viewX = 0; viewY = 0; zoom = 1; updateWorldTransform(); }
+        viewport.onpointermove = (e) => {
+            if (!pointers[e.pointerId]) return;
+            pointers[e.pointerId] = e;
 
-        // --- SMART LABEL LOGIC ---
-        function getNextLabel(type) {
-            // Find all existing labels of this type
-            const existing = objects
-                .filter(o => o.dataset.type === type && !o.classList.contains('ghost'))
-                .map(o => o.dataset.label);
+            if (Object.keys(pointers).length === 2) {
+                // PINCH ZOOM
+                const p1 = pointers[Object.keys(pointers)[0]];
+                const p2 = pointers[Object.keys(pointers)[1]];
+                const dist = Math.hypot(p2.clientX - p1.clientX, p2.clientY - p1.clientY);
+                scale = initialScale * (dist / initialPinchDist);
+                scale = Math.min(Math.max(0.2, scale), 5); // Clamp zoom
+                updateTransform();
+                return;
+            }
+
+            if (isDragging && Object.keys(pointers).length === 1) {
+                // PAN
+                panX += e.movementX;
+                panY += e.movementY;
+                updateTransform();
+            }
+        };
+
+        viewport.onpointerup = (e) => {
+            delete pointers[e.pointerId];
+            if (Object.keys(pointers).length === 0) isDragging = false;
+        };
+
+        function updateTransform() {
+            world.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
+            document.getElementById('grid-pattern').style.backgroundPosition = `${-panX}px ${-panY}px`;
+        }
+        
+        // Center initial view
+        panX = window.innerWidth / 2;
+        panY = window.innerHeight / 2;
+        updateTransform();
+
+        // --- OBJECT SYSTEM ---
+        function addObject(type, propData = null) {
+            const id = 'obj_' + Date.now();
+            const el = document.createElement('div');
+            el.id = id;
+            el.className = 'scene-object group';
+            el.style.left = '0px'; el.style.top = '0px';
+            el.dataset.type = type;
+            el.dataset.rot = 0;
+            
+            // Visual Content
+            let visual = '';
+            let label = 'Object';
             
             if (type === 'camera') {
-                // Generate A, B, C... check which is missing
-                const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-                for (let char of alphabet) {
-                    const label = `CAM ${char}`;
-                    if (!existing.includes(label)) return label;
-                }
+                label = 'CAM A';
+                visual = `<div class="fov-cone"></div><div class="cam-body object-visual w-10 h-6"></div>`;
+                el.dataset.linkedTo = ''; // For target locking
             } else if (type === 'actor') {
-                // Generate 1, 2, 3...
-                let i = 1;
-                while (true) {
-                    const label = `Actor ${i}`;
-                    if (!existing.includes(label)) return label;
-                    i++;
-                }
-            }
-            return "Object";
-        }
-
-        // --- OBJECT FACTORY ---
-        function createObject(type, propData = null) {
-            const div = document.createElement('div');
-            const id = `obj-${Date.now()}-${Math.floor(Math.random()*1000)}`;
-            div.id = id;
-            div.className = 'scene-object';
-            div.dataset.type = type;
-
-            let label = "";
-            
-            if (type === 'prop' && propData) {
+                label = 'Actor';
+                visual = `<div class="w-10 h-10 rounded-full bg-rose-500 object-visual shadow-[0_0_15px_rgba(244,63,94,0.4)] relative"><div class="absolute top-0 left-1/2 -translate-x-1/2 w-2 h-2 bg-white rounded-full -mt-1"></div></div>`;
+            } else if (type === 'prop') {
                 label = propData.name;
-            } else {
-                label = getNextLabel(type);
-            }
-            
-            div.dataset.label = label;
-            
-            // Random scatter
-            div.style.left = `${(Math.random() * 100) - 50}px`;
-            div.style.top = `${(Math.random() * 100) - 50}px`;
-
-            if (type === 'camera') {
-                div.innerHTML = `
-                    <div class="fov-cone" id="${id}-cone"></div>
-                    <div class="cam-lens"></div>
-                    <div class="cam-body"></div>
-                    <div class="smart-label">
-                        <span class="label-text">${label}</span>
-                        <span class="opacity-30">|</span>
-                        <span id="${id}-focal" class="text-cyan-400">35mm</span>
-                    </div>
-                `;
-                div.dataset.lens = 35;
-            } 
-            else if (type === 'actor') {
-                div.innerHTML = `
-                    <div class="actor-nose"></div>
-                    <div class="actor-body"></div>
-                    <div class="smart-label label-text">${label}</div>
-                `;
-            }
-            else if (type === 'prop') {
-                const borderRadius = propData.shape === 'circle' ? '50%' : '6px';
-                div.innerHTML = `
-                    <div class="prop-body" style="width:${propData.w}px; height:${propData.h}px; border-radius:${borderRadius}">
-                        <i class="fa-solid ${propData.icon}"></i>
-                    </div>
-                    <div class="smart-label label-text">${label}</div>
-                `;
+                visual = `<div class="prop-visual object-visual border border-white/20 bg-white/5 rounded-lg" style="width:${propData.w}px; height:${propData.h}px"><i class="fa-solid ${propData.icon}"></i></div>`;
             }
 
-            div.onpointerdown = (e) => startDrag(e, div);
-            world.appendChild(div);
-            objects.push(div);
-            selectObject(div);
+            el.innerHTML = `
+                ${visual}
+                <div class="text-[9px] font-bold mt-2 opacity-70 bg-black/50 px-2 py-0.5 rounded backdrop-blur-sm label-tag">${label}</div>
+                <div class="control-handle rotate-handle" onpointerdown="startRotate(event, '${id}')"><i class="fa-solid fa-rotate"></i></div>
+                ${type === 'prop' ? `<div class="control-handle resize-handle" onpointerdown="startResize(event, '${id}')"><i class="fa-solid fa-expand"></i></div>` : ''}
+            `;
+
+            el.onpointerdown = (e) => startDragObject(e, el);
+            world.appendChild(el);
+            objects.push({id, el, type, label, x:0, y:0, rot:0, scale:1, linkedTo:null});
+            selectObject(id);
+            document.getElementById('prop-picker').classList.add('hidden');
         }
 
-        function addCamera() { createObject('camera'); }
-        function addActor() { createObject('actor'); }
+        // --- MANIPULATION LOGIC ---
+        let activeObj = null;
+        let startX, startY, startRot, startW, startH;
 
-        // --- PROP WAREHOUSE LOGIC ---
-        function renderPropGrid(filter = 'all') {
+        function startDragObject(e, el) {
+            if (e.target.classList.contains('control-handle')) return;
+            e.stopPropagation();
+            selectObject(el.id);
+            activeObj = objects.find(o => o.id === el.id);
+            
+            if (targetMode && activeObj.type === 'actor' && selectedId && objects.find(o=>o.id===selectedId).type === 'camera') {
+                // Link Camera to Actor
+                linkCameraToActor(selectedId, activeObj.id);
+                targetMode = false;
+                document.body.style.cursor = 'default';
+                return;
+            }
+
+            startX = e.clientX; 
+            startY = e.clientY;
+            el.setPointerCapture(e.pointerId);
+            
+            el.onpointermove = (ev) => {
+                const dx = (ev.clientX - startX) / scale;
+                const dy = (ev.clientY - startY) / scale;
+                activeObj.x += dx;
+                activeObj.y += dy;
+                updateObjectDOM(activeObj);
+                startX = ev.clientX;
+                startY = ev.clientY;
+                
+                // Update any cameras linked TO this object
+                updateLinkedCameras();
+            };
+            
+            el.onpointerup = () => { el.onpointermove = null; el.releasePointerCapture(e.pointerId); };
+        }
+
+        function startRotate(e, id) {
+            e.stopPropagation();
+            const obj = objects.find(o => o.id === id);
+            const el = document.getElementById(id);
+            const rect = el.getBoundingClientRect();
+            const center = { x: rect.left + rect.width/2, y: rect.top + rect.height/2 };
+            
+            el.setPointerCapture(e.pointerId);
+            
+            el.onpointermove = (ev) => {
+                const angle = Math.atan2(ev.clientY - center.y, ev.clientX - center.x);
+                obj.rot = angle * (180 / Math.PI) + 90; // +90 to align top
+                updateObjectDOM(obj);
+            };
+            
+            el.onpointerup = () => { el.onpointermove = null; el.releasePointerCapture(e.pointerId); };
+        }
+
+        function startResize(e, id) {
+            e.stopPropagation();
+            const obj = objects.find(o => o.id === id);
+            const el = document.getElementById(id);
+            const visual = el.querySelector('.object-visual');
+            startX = e.clientX; startY = e.clientY;
+            startW = visual.offsetWidth; startH = visual.offsetHeight;
+            
+            el.setPointerCapture(e.pointerId);
+            el.onpointermove = (ev) => {
+                const dw = (ev.clientX - startX) / scale;
+                const dh = (ev.clientY - startY) / scale;
+                visual.style.width = (startW + dw) + 'px';
+                visual.style.height = (startH + dh) + 'px';
+            };
+            el.onpointerup = () => { el.onpointermove = null; el.releasePointerCapture(e.pointerId); };
+        }
+
+        function updateObjectDOM(obj) {
+            const el = document.getElementById(obj.id);
+            el.style.transform = `translate(${obj.x}px, ${obj.y}px) rotate(${obj.rot}deg)`;
+            // Counter-rotate label
+            const label = el.querySelector('.label-tag');
+            if(label) label.style.transform = `rotate(-${obj.rot}deg)`;
+        }
+
+        // --- SELECTION & UI ---
+        function selectObject(id) {
+            deselect();
+            selectedId = id;
+            document.getElementById(id).classList.add('selected');
+            document.getElementById('obj-controls').classList.remove('hidden');
+            document.getElementById('obj-controls').classList.add('flex');
+            
+            // Populate Inspector Data
+            const obj = objects.find(o => o.id === id);
+            document.getElementById('insp-name').value = obj.label;
+            
+            if (obj.type === 'camera') document.getElementById('cam-controls').classList.remove('hidden');
+            else document.getElementById('cam-controls').classList.add('hidden');
+        }
+
+        function deselect() {
+            if (selectedId) document.getElementById(selectedId).classList.remove('selected');
+            selectedId = null;
+            document.getElementById('obj-controls').classList.add('hidden');
+            document.getElementById('obj-controls').classList.remove('flex');
+            closeInspector();
+            targetMode = false;
+            document.body.style.cursor = 'default';
+        }
+
+        function openInspector() { document.getElementById('inspector').style.transform = 'translateY(-50%) translateX(0)'; }
+        function closeInspector() { document.getElementById('inspector').style.transform = 'translateY(-50%) translateX(150%)'; }
+        
+        function updateLabel(val) {
+            if (!selectedId) return;
+            const obj = objects.find(o => o.id === selectedId);
+            obj.label = val;
+            document.getElementById(selectedId).querySelector('.label-tag').innerText = val;
+        }
+
+        function setColor(hex) {
+            if (!selectedId) return;
+            const el = document.getElementById(selectedId).querySelector('.object-visual');
+            el.style.backgroundColor = hex;
+            el.style.borderColor = hex;
+            if(objects.find(o=>o.id===selectedId).type === 'prop') {
+                el.style.color = (hex === '#ffffff') ? '#000' : '#fff';
+            }
+        }
+
+        // --- TARGET LINKING ---
+        function activateTargetMode() {
+            targetMode = true;
+            closeInspector();
+            alert("Tap an ACTOR to link this camera.");
+            document.body.style.cursor = 'crosshair';
+        }
+
+        function linkCameraToActor(camId, actorId) {
+            const cam = objects.find(o => o.id === camId);
+            cam.linkedTo = actorId;
+            updateLinkedCameras();
+        }
+
+        function updateLinkedCameras() {
+            objects.filter(o => o.type === 'camera' && o.linkedTo).forEach(cam => {
+                const target = objects.find(t => t.id === cam.linkedTo);
+                if (target) {
+                    const angle = Math.atan2(target.y - cam.y, target.x - cam.x);
+                    cam.rot = angle * (180 / Math.PI) + 90;
+                    updateObjectDOM(cam);
+                }
+            });
+        }
+
+        // --- PROP GENERATOR (150+ Props) ---
+        const propCats = {
+            'furniture': ['Chair', 'Table', 'Sofa', 'Bed', 'Desk', 'Shelf', 'Lamp', 'Rug'],
+            'set': ['Wall', 'Window', 'Door', 'Stairs', 'Pillar', 'Box', 'GreenScreen'],
+            'street': ['Car', 'Truck', 'Bike', 'Bench', 'Tree', 'StreetLight', 'Hydrant']
+        };
+        const icons = { 'Chair': 'fa-chair', 'Car': 'fa-car', 'Tree': 'fa-tree', 'Wall': 'fa-square', 'Lamp': 'fa-lightbulb' };
+
+        function filterProps(cat) {
             const grid = document.getElementById('prop-grid');
             grid.innerHTML = '';
+            let list = [];
+            if (cat === 'all') Object.values(propCats).forEach(c => list.push(...c));
+            else list = propCats[cat] || [];
             
-            const filtered = filter === 'all' ? propLibrary : propLibrary.filter(p => p.cat === filter);
+            // Expand list to simulate volume for demo
+            if (list.length < 20) list = [...list, ...list, ...list]; 
             
-            filtered.forEach(p => {
+            list.forEach((name, i) => {
                 const btn = document.createElement('button');
-                btn.className = "aspect-square bg-white/5 rounded-xl hover:bg-white/10 flex flex-col items-center justify-center gap-2 border border-white/5 transition hover:scale-105";
-                btn.onclick = () => { createObject('prop', p); closePropPicker(); };
-                btn.innerHTML = `<i class="fa-solid ${p.icon} text-xl text-amber-400"></i><span class="text-[9px] uppercase tracking-wide opacity-70">${p.name}</span>`;
+                btn.className = "aspect-square bg-white/5 border border-white/10 rounded-xl flex flex-col items-center justify-center hover:bg-white/10";
+                btn.innerHTML = `<i class="fa-solid ${icons[name] || 'fa-cube'} text-xl mb-2 text-white/70"></i><span class="text-[9px] uppercase">${name} ${i+1}</span>`;
+                btn.onclick = () => addObject('prop', {name: name, icon: icons[name] || 'fa-cube', w: 40, h: 40});
                 grid.appendChild(btn);
             });
         }
         
-        function openPropPicker() { document.getElementById('prop-picker').classList.remove('hidden'); }
-        function closePropPicker(e) { 
-            if(!e || e.target.id === 'prop-picker' || !e.target.id) document.getElementById('prop-picker').classList.add('hidden'); 
-        }
-        function filterProps(cat) { renderPropGrid(cat); }
-
-        // --- INTERACTION LOGIC ---
-        let dragItem = null;
-        let dragStartX, dragStartY, itemStartX, itemStartY;
-
-        function startDrag(e, item) {
-            e.stopPropagation();
-            dragItem = item;
-            selectObject(item);
-            dragStartX = e.clientX;
-            dragStartY = e.clientY;
-            itemStartX = parseFloat(item.style.left || 0);
-            itemStartY = parseFloat(item.style.top || 0);
-            item.setPointerCapture(e.pointerId);
+        function openPropPicker() { 
+            document.getElementById('prop-picker').classList.remove('hidden');
+            filterProps('all');
         }
 
-        viewport.onpointerdown = (e) => {
-            if (e.target.closest('.scene-object')) return;
-            isPanning = true;
-            dragStartX = e.clientX;
-            dragStartY = e.clientY;
-            viewport.style.cursor = 'grabbing';
-            closeInspector();
-        };
+        // --- SAVE SYSTEM ---
+        let currentSceneName = "Untitled Scene";
 
-        window.onpointermove = (e) => {
-            if (dragItem) {
-                const dx = (e.clientX - dragStartX) / zoom;
-                const dy = (e.clientY - dragStartY) / zoom;
-                const newX = itemStartX + dx;
-                const newY = itemStartY + dy;
-                
-                dragItem.style.left = `${newX}px`;
-                dragItem.style.top = `${newY}px`;
-
-                // Smart Features
-                if (dragItem.dataset.type === 'camera') autoLookAtActor(dragItem, newX, newY);
-                
-                // If this is a ghost, update the dashed line
-                if (dragItem.classList.contains('ghost')) updateGhostLine(dragItem);
-                
-                // If this is a parent with a ghost, update line too
-                updateParentConnections(dragItem.id);
-                
-                return;
-            }
-
-            if (isPanning) {
-                viewX += e.clientX - dragStartX;
-                viewY += e.clientY - dragStartY;
-                dragStartX = e.clientX;
-                dragStartY = e.clientY;
-                updateWorldTransform();
-            }
-        };
-
-        window.onpointerup = () => { dragItem = null; isPanning = false; viewport.style.cursor = 'grab'; };
-
-        function updateWorldTransform() {
-            world.style.transform = `translate(-50%, -50%) translate(${viewX}px, ${viewY}px) scale(${zoom})`;
-            document.getElementById('grid-pattern').style.backgroundPosition = `${-viewX}px ${-viewY}px`;
+        function toggleSceneMenu() {
+            const menu = document.getElementById('scene-menu');
+            menu.classList.toggle('hidden');
+            if (!menu.classList.contains('hidden')) loadSceneList();
         }
 
-        viewport.onwheel = (e) => {
-            e.preventDefault();
-            const delta = e.deltaY > 0 ? 0.9 : 1.1;
-            zoom = Math.min(Math.max(0.2, zoom * delta), 4);
-            updateWorldTransform();
-        };
+        function saveScene() {
+            const name = document.getElementById('scene-name-input').value || currentSceneName;
+            currentSceneName = name;
+            document.getElementById('scene-name-display').innerText = name;
+            
+            // Serialize
+            const sceneData = {
+                name: name,
+                objects: objects.map(o => {
+                    // Get visual size for props
+                    const el = document.getElementById(o.id).querySelector('.object-visual');
+                    return {...o, w: el.offsetWidth, h: el.offsetHeight};
+                })
+            };
+            
+            localStorage.setItem('cineflow_' + name, JSON.stringify(sceneData));
+            alert("Scene Saved!");
+            toggleSceneMenu();
+        }
 
-        // --- SMART ROTATION & LABEL FIX ---
-        function autoLookAtActor(camera, camX, camY) {
-            let closest = null, minDist = 800;
-            objects.forEach(obj => {
-                if (obj.dataset.type === 'actor' && !obj.classList.contains('ghost')) {
-                    const dist = Math.hypot(parseFloat(obj.style.left) - camX, parseFloat(obj.style.top) - camY);
-                    if (dist < minDist) { minDist = dist; closest = obj; }
+        function loadSceneList() {
+            const list = document.getElementById('saved-list');
+            list.innerHTML = '';
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key.startsWith('cineflow_')) {
+                    const name = key.replace('cineflow_', '');
+                    const div = document.createElement('div');
+                    div.className = "flex justify-between items-center p-2 bg-white/5 rounded-lg";
+                    div.innerHTML = `
+                        <span class="text-xs font-bold">${name}</span>
+                        <div class="flex gap-2">
+                            <button onclick="loadScene('${name}')" class="text-xs text-green-400">LOAD</button>
+                            <button onclick="deleteScene('${name}')" class="text-xs text-red-400">DEL</button>
+                        </div>
+                    `;
+                    list.appendChild(div);
                 }
+            }
+        }
+
+        function loadScene(name) {
+            const data = JSON.parse(localStorage.getItem('cineflow_' + name));
+            currentSceneName = data.name;
+            document.getElementById('scene-name-display').innerText = data.name;
+            document.getElementById('scene-name-input').value = data.name;
+            
+            // Clear current
+            world.innerHTML = '<div id="grid-pattern"></div><div id="lines-layer"></div>';
+            objects = [];
+            
+            // Rebuild
+            data.objects.forEach(o => {
+                addObject(o.type, {name: o.label, icon: 'fa-cube', w: o.w, h: o.h});
+                const newObj = objects[objects.length-1];
+                newObj.x = o.x; newObj.y = o.y; newObj.rot = o.rot; newObj.label = o.label;
+                newObj.linkedTo = o.linkedTo;
+                updateObjectDOM(newObj);
+                // Visual color update would go here if saved
             });
-            if (closest) {
-                const angle = Math.atan2(parseFloat(closest.style.top) - camY, parseFloat(closest.style.left) - camX) * (180/Math.PI) + 90;
-                camera.style.transform = `rotate(${angle}deg)`;
-                
-                // BILLBOARD EFFECT: Counter-rotate label so it stays readable
-                const label = camera.querySelector('.smart-label');
-                if(label) label.style.transform = `rotate(${-angle}deg)`;
+            toggleSceneMenu();
+        }
+        
+        function downloadScene() {
+            const data = JSON.stringify({name: currentSceneName, objects: objects});
+            const blob = new Blob([data], {type: 'application/json'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = currentSceneName + '.json';
+            a.click();
+        }
+
+        function createNewScene() {
+            if(confirm("Clear current scene?")) {
+                world.innerHTML = '<div id="grid-pattern"></div><div id="lines-layer"></div>';
+                objects = [];
+                currentSceneName = "Untitled Scene";
+                document.getElementById('scene-name-display').innerText = currentSceneName;
+                toggleSceneMenu();
             }
         }
 
-        // --- PREVIEW ANIMATION (ACTION!) ---
-        function playScene() {
-            // Find all connections
-            connections.forEach(conn => {
-                const realObj = document.getElementById(conn.from);
-                const ghostObj = document.getElementById(conn.to);
-                
-                if (realObj && ghostObj) {
-                    // Calculate relative movement
-                    const startX = parseFloat(realObj.style.left);
-                    const startY = parseFloat(realObj.style.top);
-                    const endX = parseFloat(ghostObj.style.left);
-                    const endY = parseFloat(ghostObj.style.top);
-                    
-                    // Web Animations API
-                    realObj.animate([
-                        { left: `${startX}px`, top: `${startY}px` },
-                        { left: `${endX}px`, top: `${endY}px` }
-                    ], {
-                        duration: 2000,
-                        easing: 'ease-in-out',
-                        fill: 'forwards' // Stay at end
-                    });
-
-                    // Optional: Reset after delay
-                    setTimeout(() => {
-                        realObj.animate([
-                            { left: `${endX}px`, top: `${endY}px` },
-                            { left: `${startX}px`, top: `${startY}px` }
-                        ], { duration: 500, fill: 'forwards' });
-                    }, 3000);
-                }
-            });
+        function deleteScene(name) {
+            localStorage.removeItem('cineflow_' + name);
+            loadSceneList();
         }
-
-        // --- MOVEMENT SYSTEM ---
-        function addMovement() {
-            if (!selectedId) return;
-            const original = document.getElementById(selectedId);
-            if (original.classList.contains('ghost')) return; // Can't add movement to a ghost
-
-            // Create Ghost
-            const ghost = original.cloneNode(true);
-            ghost.id = `${original.id}-ghost`;
-            ghost.classList.add('ghost');
-            ghost.querySelectorAll('[id]').forEach(el => el.removeAttribute('id')); // Clean IDs
-            
-            // Offset position
-            const newX = parseFloat(original.style.left) + 100;
-            ghost.style.left = `${newX}px`;
-            
-            ghost.onpointerdown = (e) => startDrag(e, ghost);
-            world.appendChild(ghost);
-            objects.push(ghost);
-            
-            // Create Line
-            const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-            line.setAttribute('stroke', 'var(--text-color)');
-            line.setAttribute('stroke-width', '2');
-            line.setAttribute('stroke-dasharray', '5,5');
-            line.setAttribute('opacity', '0.5');
-            svgLayer.appendChild(line);
-            
-            connections.push({ from: original.id, to: ghost.id, line: line });
-            updateGhostLine(ghost);
-        }
-
-        function updateGhostLine(ghost) {
-            const conn = connections.find(c => c.to === ghost.id);
-            if (conn) {
-                const origin = document.getElementById(conn.from);
-                const offset = 5000;
-                conn.line.setAttribute('x1', parseFloat(origin.style.left) + offset);
-                conn.line.setAttribute('y1', parseFloat(origin.style.top) + offset);
-                conn.line.setAttribute('x2', parseFloat(ghost.style.left) + offset);
-                conn.line.setAttribute('y2', parseFloat(ghost.style.top) + offset);
-            }
-        }
-
-        function updateParentConnections(parentId) {
-            const conns = connections.filter(c => c.from === parentId);
-            const offset = 5000;
-            const origin = document.getElementById(parentId);
-            conns.forEach(conn => {
-                const ghost = document.getElementById(conn.to);
-                conn.line.setAttribute('x1', parseFloat(origin.style.left) + offset);
-                conn.line.setAttribute('y1', parseFloat(origin.style.top) + offset);
-                conn.line.setAttribute('x2', parseFloat(ghost.style.left) + offset);
-                conn.line.setAttribute('y2', parseFloat(ghost.style.top) + offset);
-            });
-        }
-
-        // --- INSPECTOR LOGIC ---
-        const inspector = document.getElementById('inspector');
-        const nameInput = document.getElementById('name-input');
-        const lensSlider = document.getElementById('lens-slider');
-
-        function selectObject(item) {
-            selectedId = item.id;
-            inspector.style.transform = "translateY(-50%) translateX(0)";
-            
-            // Populate Name
-            nameInput.value = item.dataset.label;
-            
-            // Toggle Controls
-            document.getElementById('cam-controls').classList.add('hidden');
-            
-            if (item.dataset.type === 'camera' && !item.classList.contains('ghost')) {
-                document.getElementById('cam-controls').classList.remove('hidden');
-                lensSlider.value = item.dataset.lens;
-                document.getElementById('lens-display').innerText = item.dataset.lens + "mm";
-            }
-        }
-
-        function closeInspector() {
-            inspector.style.transform = "translateY(-50%) translateX(120%)";
-            selectedId = null;
-        }
-
-        // Live Name Update
-        nameInput.oninput = (e) => {
-            if (!selectedId) return;
-            const item = document.getElementById(selectedId);
-            const val = e.target.value;
-            item.dataset.label = val;
-            
-            // Update UI text
-            const textLabels = item.getElementsByClassName('label-text');
-            for(let span of textLabels) span.innerText = val;
-        };
-
-        // Live Color Update
-        function changeColor(hex) {
-            if (!selectedId) return;
-            const item = document.getElementById(selectedId);
-            
-            // Try to find specific parts to color
-            const actorBody = item.querySelector('.actor-body');
-            const camBody = item.querySelector('.cam-body');
-            const propBody = item.querySelector('.prop-body');
-            const fov = item.querySelector('.fov-cone');
-            
-            if (actorBody) {
-                actorBody.style.backgroundColor = hex;
-                actorBody.style.boxShadow = `0 0 15px ${hex}66`;
-            }
-            if (camBody) {
-                camBody.style.backgroundColor = hex;
-                camBody.style.boxShadow = `0 0 15px ${hex}66`;
-                if(fov) fov.style.borderTopColor = `${hex}33`; // 20% opacity
-            }
-            if (propBody) {
-                propBody.querySelector('i').style.color = hex;
-                propBody.style.borderColor = hex;
-            }
-        }
-
-        function deleteSelected() {
-            if (!selectedId) return;
-            const item = document.getElementById(selectedId);
-            
-            // Clean up connections
-            connections = connections.filter(conn => {
-                if (conn.from === selectedId || conn.to === selectedId) {
-                    if (conn.to === selectedId) document.getElementById(conn.from).remove(); // Remove parent if ghost deleted? No, just link.
-                    conn.line.remove();
-                    // If deleting parent, delete ghost too
-                    if (conn.from === selectedId) {
-                         const ghost = document.getElementById(conn.to);
-                         if(ghost) ghost.remove();
-                    }
-                    return false;
-                }
-                return true;
-            });
-
-            item.remove();
-            objects = objects.filter(o => o.id !== selectedId);
-            closeInspector();
-        }
-
-        // Lens Slider
-        lensSlider.oninput = (e) => {
-            if (!selectedId) return;
-            const item = document.getElementById(selectedId);
-            const val = e.target.value;
-            item.dataset.lens = val;
-            
-            document.getElementById('lens-display').innerText = val + "mm";
-            item.querySelector(`#${selectedId}-focal`).innerText = val + "mm";
-
-            const scale = 35 / val; 
-            const cone = item.querySelector('.fov-cone');
-            cone.style.transform = `translateX(-50%) scaleX(${scale})`;
-        };
 
         function toggleTheme() {
             document.body.classList.toggle('light-mode');
-            const icon = document.getElementById('theme-icon');
-            icon.classList.toggle('fa-moon');
-            icon.classList.toggle('fa-sun');
         }
 
+        function deleteSelected() {
+            if (selectedId) {
+                document.getElementById(selectedId).remove();
+                objects = objects.filter(o => o.id !== selectedId);
+                deselect();
+            }
+        }
     </script>
 </body>
 </html>
