@@ -277,6 +277,12 @@
              aria-label="Feedback" title="Feedback">
             <i class="fa-regular fa-comment-dots text-xs"></i>
           </a>
+            <button data-action="openAbout"
+              class="flex-none glass-panel w-11 h-11 rounded-2xl flex items-center justify-center hover:text-brand transition"
+              aria-label="Creator" title="Creator">
+              <i class="fa-solid fa-user text-xs"></i>
+            </button>
+
         </div>
       </div>
     </div>
@@ -514,7 +520,65 @@
   </div>
 
   <!-- ===== STORYBOARD MODAL ===== -->
-  <div id="storyboard-modal" class="fixed inset-0 bg-black/95 z-[80] hidden items-center justify-center backdrop-blur-lg">
+  <div 
+  <!-- About / Creator Modal -->
+  <div id="about-modal" class="fixed inset-0 bg-black/80 z-[76] hidden items-center justify-center backdrop-blur-md animate-in">
+    <div class="glass-panel w-[92vw] max-w-md rounded-3xl p-8 border border-white/10">
+      <div class="flex justify-between items-center mb-6">
+        <div>
+          <h3 class="text-xs font-bold uppercase tracking-[0.2em] text-brand">Creator</h3>
+          <div class="text-[10px] opacity-60 mt-1">Seguimi per update, breakdown e workflow tips.</div>
+        </div>
+        <button data-action="closeAbout" class="opacity-60 hover:opacity-100 hover:text-brand" aria-label="Close" title="Close">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div class="space-y-3">
+        <a href="https://www.instagram.com/italo.filmmaking" target="_blank" rel="noopener noreferrer"
+           class="flex items-center gap-3 bg-white/5 border border-white/10 rounded-2xl p-4 hover:bg-white/10 hover:border-white/20 transition">
+          <div class="w-10 h-10 rounded-2xl bg-white/5 flex items-center justify-center">
+            <i class="fa-brands fa-instagram text-sm"></i>
+          </div>
+          <div class="flex-1">
+            <div class="text-xs font-bold">Instagram</div>
+            <div class="text-[10px] opacity-60">@italo.filmmaking</div>
+          </div>
+          <i class="fa-solid fa-arrow-up-right-from-square text-[10px] opacity-60"></i>
+        </a>
+
+        <a href="https://www.tiktok.com/@italo.filmmaking" target="_blank" rel="noopener noreferrer"
+           class="flex items-center gap-3 bg-white/5 border border-white/10 rounded-2xl p-4 hover:bg-white/10 hover:border-white/20 transition">
+          <div class="w-10 h-10 rounded-2xl bg-white/5 flex items-center justify-center">
+            <i class="fa-brands fa-tiktok text-sm"></i>
+          </div>
+          <div class="flex-1">
+            <div class="text-xs font-bold">TikTok</div>
+            <div class="text-[10px] opacity-60">@italo.filmmaking</div>
+          </div>
+          <i class="fa-solid fa-arrow-up-right-from-square text-[10px] opacity-60"></i>
+        </a>
+
+        <a href="https://www.youtube.com/@italo.filmmaking" target="_blank" rel="noopener noreferrer"
+           class="flex items-center gap-3 bg-white/5 border border-white/10 rounded-2xl p-4 hover:bg-white/10 hover:border-white/20 transition">
+          <div class="w-10 h-10 rounded-2xl bg-white/5 flex items-center justify-center">
+            <i class="fa-brands fa-youtube text-sm"></i>
+          </div>
+          <div class="flex-1">
+            <div class="text-xs font-bold">YouTube</div>
+            <div class="text-[10px] opacity-60">@italo.filmmaking</div>
+          </div>
+          <i class="fa-solid fa-arrow-up-right-from-square text-[10px] opacity-60"></i>
+        </a>
+      </div>
+
+      <div class="mt-6 pt-5 border-t border-white/10 text-[10px] opacity-60">
+        Made by <span class="text-brand font-bold">Italo</span> • <span class="opacity-80">italo.filmmaking</span>
+      </div>
+    </div>
+  </div>
+
+id="storyboard-modal" class="fixed inset-0 bg-black/95 z-[80] hidden items-center justify-center backdrop-blur-lg">
     <div class="glass-panel w-[92vw] max-w-6xl max-h-[90vh] rounded-3xl overflow-hidden flex flex-col border border-white/10">
       <div class="p-6 border-b border-white/5 flex justify-between items-center">
         <div>
@@ -615,6 +679,7 @@
     measureBtn: document.getElementById("measure-btn"),
 
     projectSettings: document.getElementById("project-settings"),
+    aboutModal: document.getElementById("about-modal"),
     ppmInput: document.getElementById("ppm-input"),
     aspectSelect: document.getElementById("aspect-select"),
     overlaysToggle: document.getElementById("overlays-toggle"),
@@ -2096,6 +2161,16 @@
     el.projectSettings.classList.remove("flex");
   }
 
+  function openAbout(){
+    el.aboutModal.classList.remove("hidden");
+    el.aboutModal.classList.add("flex");
+  }
+  function closeAbout(){
+    el.aboutModal.classList.add("hidden");
+    el.aboutModal.classList.remove("flex");
+  }
+
+
   function applyProjectSettings(){
     state.pxPerMeter = clamp(Number(el.ppmInput.value || 100), 10, 500);
     state.storyboard.aspect = clamp(Number(el.aspectSelect.value || 2.39), 1.0, 3.0);
@@ -2135,6 +2210,8 @@
         openProjectSettings,
         closeProjectSettings,
         applyProjectSettings,
+        openAbout,
+        closeAbout,
         addActor: () => addObject("actor", { label:"Actor", color:"#f43f5e" }),
         addCamera: () => addObject("camera", { label:"CAM", sensor:"FF", focal:35 }),
         saveScene,
@@ -2173,6 +2250,12 @@
       el.fovValue.textContent = el.fovSlider.value;
     });
     el.fovSlider.addEventListener("change", () => updateFovOverride(el.fovSlider.value));
+
+    // Close About modal by tapping the backdrop
+    el.aboutModal.addEventListener("click", (ev) => {
+      if(ev.target === el.aboutModal) closeAbout();
+    });
+
   }
 
   function wireKeyboard(){
