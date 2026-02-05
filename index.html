@@ -1,1340 +1,2122 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="it">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>CineFlow V7 Enhanced | Golden Hour</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
-    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
-    <style>
-        :root { 
-            --bg-color: #0d0d0d; 
-            --grid-color: rgba(255,255,255,0.03);
-            --glass-bg: rgba(20, 20, 20, 0.85);
-            --glass-border: rgba(255, 255, 255, 0.08);
-            --brand: #ffa300;
-            --text-color: #eeeeee;
-        }
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>CineFlow V8 | True POV Storyboard</title>
 
-        body.light-mode {
-            --bg-color: #f0f0f0;
-            --grid-color: rgba(0,0,0,0.05);
-            --glass-bg: rgba(255,255,255,0.9);
-            --glass-border: rgba(0, 0, 0, 0.1);
-            --brand: #ffa300;
-            --text-color: #1a1a1a;
-        }
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
+  <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
 
-        body { 
-            background-color: var(--bg-color); color: var(--text-color);
-            margin: 0; overflow: hidden; touch-action: none; 
-            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
-            user-select: none; -webkit-user-select: none;
-            transition: background-color 0.3s;
-        }
-        
-        #viewport { width: 100vw; height: 100vh; position: relative; overflow: hidden; cursor: grab; }
-        #world { position: absolute; top: 0; left: 0; width: 100%; height: 100%; transform-origin: 0 0; pointer-events: none; }
-        #world > * { pointer-events: auto; }
-        
-        #grid-pattern {
-            position: absolute; top: -5000px; left: -5000px; width: 10000px; height: 10000px;
-            background-image: 
-                linear-gradient(var(--grid-color) 1px, transparent 1px),
-                linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
-            background-size: 50px 50px;
-            pointer-events: none; z-index: -1;
-        }
+  <!-- Zip download (Download All storyboard frames) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
 
-        .scene-object {
-            position: absolute; transform-origin: center center;
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            cursor: grab; z-index: 10;
-        }
-        .scene-object.ghost { opacity: 0.4; filter: grayscale(100%); z-index: 5; }
-        .scene-object.ghost .object-visual { border-style: dashed; }
-        .scene-object.hidden-layer { opacity: 0.2; pointer-events: none; }
-        
-        .scene-object.selected .object-visual {
-            outline: 2px solid var(--brand);
-            box-shadow: 0 0 25px rgba(255, 163, 0, 0.3);
-        }
-        
-        .control-handle {
-            position: absolute; width: 20px; height: 20px;
-            background: white; border-radius: 50%; color: black;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
-            display: flex; align-items: center; justify-content: center; font-size: 8px;
-            z-index: 20; transform: scale(0); transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        }
-        .selected .control-handle { transform: scale(1); }
-        .rotate-handle { top: -30px; cursor: pointer; }
-        .resize-handle { bottom: -15px; right: -15px; cursor: se-resize; }
+  <style>
+    :root{
+      --bg-color:#0d0d0d;
+      --grid-color:rgba(255,255,255,0.03);
+      --glass-bg:rgba(20,20,20,0.85);
+      --glass-border:rgba(255,255,255,0.08);
+      --brand:#ffa300;
+      --text-color:#eeeeee;
+      --shadow: rgba(0,0,0,0.35);
+    }
+    body.light-mode{
+      --bg-color:#f0f0f0;
+      --grid-color:rgba(0,0,0,0.06);
+      --glass-bg:rgba(255,255,255,0.90);
+      --glass-border:rgba(0,0,0,0.10);
+      --brand:#ffa300;
+      --text-color:#1a1a1a;
+      --shadow: rgba(0,0,0,0.12);
+    }
 
-        .object-visual { transition: transform 0.1s; }
-        .fov-cone {
-            position: absolute; bottom: 50%; left: 50%; transform: translateX(-50%);
-            width: 0; height: 0;
-            border-left: 100px solid transparent; border-right: 100px solid transparent;
-            border-top: 300px solid rgba(255, 163, 0, 0.15);
-            pointer-events: none; transform-origin: bottom center;
-        }
-        .cam-body { width: 36px; height: 24px; background: var(--brand); border-radius: 6px; position: relative; z-index: 2; }
-        
-        .prop-visual {
-            display: flex; align-items: center; justify-content: center;
-            color: var(--text-color); border: 1px solid rgba(255,255,255,0.15);
-        }
-        
-        svg.path-layer {
-            position: absolute; top: -5000px; left: -5000px; width: 10000px; height: 10000px;
-            pointer-events: none; z-index: 0; overflow: visible;
-        }
+    body{
+      background:var(--bg-color);
+      color:var(--text-color);
+      margin:0;
+      overflow:hidden;
+      touch-action:none;
+      font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,sans-serif;
+      user-select:none; -webkit-user-select:none;
+      transition: background-color .25s;
+    }
 
-        .measurement-line {
-            stroke: var(--brand);
-            stroke-width: 1;
-            stroke-dasharray: 2,2;
-            opacity: 0.6;
-        }
+    #viewport{ width:100vw; height:100vh; position:relative; overflow:hidden; cursor:grab; }
+    #world{ position:absolute; top:0; left:0; width:100%; height:100%; transform-origin:0 0; pointer-events:none; }
+    #world > *{ pointer-events:auto; }
 
-        .measurement-text {
-            fill: var(--brand);
-            font-size: 10px;
-            font-weight: bold;
-        }
-        
-        .glass-panel {
-            background: var(--glass-bg); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
-            border: 1px solid var(--glass-border); color: var(--text-color);
-            box-shadow: 0 8px 32px rgba(0,0,0,0.2);
-        }
-        
-        @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
-        .animate-in { animation: fadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1); }
-        
-        .hide-scroll::-webkit-scrollbar { display: none; }
-        
-        .text-brand { color: var(--brand); }
-        .bg-brand { background-color: var(--brand); }
-        .border-brand { border-color: var(--brand); }
+    #grid-pattern{
+      position:absolute; top:-5000px; left:-5000px; width:10000px; height:10000px;
+      background-image:
+        linear-gradient(var(--grid-color) 1px, transparent 1px),
+        linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
+      background-size:50px 50px;
+      pointer-events:none; z-index:-1;
+    }
 
-        /* Timeline Styles */
-        #timeline-scrubber {
-            background: linear-gradient(to right, var(--brand) 0%, transparent 0%);
-            transition: background 0.1s linear;
-        }
+    svg.path-layer{
+      position:absolute; top:-5000px; left:-5000px; width:10000px; height:10000px;
+      pointer-events:none; z-index:0; overflow:visible;
+    }
 
-        .storyboard-frame {
-            aspect-ratio: 16/9;
-            border: 2px solid var(--glass-border);
-            border-radius: 8px;
-            overflow: hidden;
-        }
+    .glass-panel{
+      background:var(--glass-bg);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border:1px solid var(--glass-border);
+      color:var(--text-color);
+      box-shadow:0 8px 32px var(--shadow);
+    }
 
-        /* Layer Indicator */
-        .layer-badge {
-            position: absolute;
-            top: -8px;
-            right: -8px;
-            width: 16px;
-            height: 16px;
-            border-radius: 50%;
-            background: var(--brand);
-            color: black;
-            font-size: 8px;
-            font-weight: bold;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 25;
-            pointer-events: none;
-        }
-    </style>
+    .text-brand{ color:var(--brand); }
+    .bg-brand{ background-color:var(--brand); }
+    .border-brand{ border-color:var(--brand); }
+
+    .scene-object{
+      position:absolute;
+      transform-origin:center center;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      cursor:grab;
+      z-index:10;
+      will-change: transform, left, top;
+    }
+    .scene-object.ghost{ opacity:.42; filter:grayscale(100%); z-index:5; }
+    .scene-object.hidden-layer{ opacity:.18; pointer-events:none; }
+
+    .scene-object.selected .object-visual{
+      outline:2px solid var(--brand);
+      box-shadow:0 0 25px rgba(255,163,0,0.30);
+    }
+
+    .control-handle{
+      position:absolute; width:20px; height:20px;
+      background:white; border-radius:50%;
+      color:black;
+      box-shadow:0 2px 5px rgba(0,0,0,0.30);
+      display:flex; align-items:center; justify-content:center;
+      font-size:8px;
+      z-index:20;
+      transform:scale(0);
+      transition: transform .2s cubic-bezier(0.175,0.885,0.32,1.275);
+    }
+    .selected .control-handle{ transform:scale(1); }
+    .rotate-handle{ top:-30px; cursor:pointer; }
+    .resize-handle{ bottom:-15px; right:-15px; cursor:se-resize; }
+
+    .object-visual{ transition: transform .08s; }
+
+    .fov-cone{
+      position:absolute; bottom:50%; left:50%;
+      transform: translateX(-50%);
+      width:0; height:0;
+      border-left:120px solid transparent;
+      border-right:120px solid transparent;
+      border-top:300px solid rgba(255,163,0,0.15);
+      pointer-events:none;
+      transform-origin: bottom center;
+    }
+
+    .cam-body{
+      width:36px; height:24px; background:var(--brand);
+      border-radius:6px; position:relative; z-index:2;
+    }
+
+    .prop-visual{
+      display:flex; align-items:center; justify-content:center;
+      color:var(--text-color); border:1px solid rgba(255,255,255,0.15);
+    }
+
+    .measurement-line{
+      stroke: var(--brand);
+      stroke-width: 1;
+      stroke-dasharray: 2,2;
+      opacity: .65;
+    }
+    .measurement-text{
+      fill: var(--brand);
+      font-size: 10px;
+      font-weight: 700;
+    }
+
+    .layer-badge{
+      position:absolute;
+      top:-8px; right:-8px;
+      width:16px; height:16px;
+      border-radius:50%;
+      background:var(--brand);
+      color:black;
+      font-size:8px;
+      font-weight:800;
+      display:flex; align-items:center; justify-content:center;
+      z-index:25; pointer-events:none;
+    }
+
+    @keyframes fadeIn{ from{ opacity:0; transform:scale(.96);} to{opacity:1; transform:scale(1);} }
+    .animate-in{ animation: fadeIn .18s cubic-bezier(.16,1,.3,1); }
+    .hide-scroll::-webkit-scrollbar{ display:none; }
+
+    /* Timeline */
+    #timeline-scrubber{ transition: background .1s linear; }
+
+    .storyboard-frame{
+      aspect-ratio:16/9;
+      border:2px solid var(--glass-border);
+      border-radius:12px;
+      overflow:hidden;
+      background: rgba(0,0,0,0.25);
+    }
+    canvas.pov-canvas{
+      width:100%;
+      height:100%;
+      display:block;
+      background: #111;
+    }
+  </style>
 </head>
+
 <body>
+  <div id="viewport">
+    <div id="world">
+      <div id="grid-pattern"></div>
+      <svg id="svg-layer" class="path-layer"></svg>
+      <svg id="measurement-layer" class="path-layer"></svg>
+      <!-- Objects will be appended here -->
+    </div>
+  </div>
 
-    <div id="viewport">
-        <div id="world">
-            <div id="grid-pattern"></div>
-            <svg id="svg-layer" class="path-layer"></svg>
-            <svg id="measurement-layer" class="path-layer"></svg>
-        </div>
+  <!-- Top Bar -->
+  <div class="fixed top-0 left-0 w-full p-4 flex justify-between items-start pointer-events-none z-50">
+    <div class="flex gap-3 pointer-events-auto">
+      <button data-action="toggleSceneMenu" class="glass-panel px-4 py-2.5 rounded-2xl flex items-center gap-3 hover:bg-white/5 transition group"
+              aria-label="Apri project manager" title="Project manager">
+        <i class="fa-solid fa-film text-brand text-xs"></i>
+        <span class="text-[10px] font-bold uppercase tracking-widest opacity-80" id="scene-name-display">Untitled</span>
+      </button>
+      <button data-action="createNewScene" class="glass-panel w-10 h-10 rounded-2xl flex items-center justify-center hover:text-brand transition"
+              aria-label="Nuova scena" title="Nuova scena">
+        <i class="fa-solid fa-plus text-xs"></i>
+      </button>
+      <button data-action="undo" id="undo-btn" class="glass-panel w-10 h-10 rounded-2xl flex items-center justify-center hover:text-brand transition opacity-40" disabled
+              aria-label="Annulla" title="Annulla (Ctrl/Cmd+Z)">
+        <i class="fa-solid fa-undo text-xs"></i>
+      </button>
+      <button data-action="redo" id="redo-btn" class="glass-panel w-10 h-10 rounded-2xl flex items-center justify-center hover:text-brand transition opacity-40" disabled
+              aria-label="Ripeti" title="Ripeti (Ctrl/Cmd+Shift+Z)">
+        <i class="fa-solid fa-redo text-xs"></i>
+      </button>
     </div>
 
-    <!-- Top Bar -->
-    <div class="fixed top-0 left-0 w-full p-4 flex justify-between items-start pointer-events-none z-50">
-        <div class="flex gap-3 pointer-events-auto">
-            <button onclick="toggleSceneMenu()" class="glass-panel px-4 py-2.5 rounded-2xl flex items-center gap-3 hover:bg-white/5 transition group">
-                <i class="fa-solid fa-film text-brand text-xs"></i>
-                <span class="text-[10px] font-bold uppercase tracking-widest opacity-80" id="scene-name-display">Untitled</span>
-            </button>
-            <button onclick="createNewScene()" class="glass-panel w-10 h-10 rounded-2xl flex items-center justify-center hover:text-brand transition">
-                <i class="fa-solid fa-plus text-xs"></i>
-            </button>
-            <!-- Undo/Redo -->
-            <button onclick="undo()" id="undo-btn" class="glass-panel w-10 h-10 rounded-2xl flex items-center justify-center hover:text-brand transition opacity-40" disabled>
-                <i class="fa-solid fa-undo text-xs"></i>
-            </button>
-            <button onclick="redo()" id="redo-btn" class="glass-panel w-10 h-10 rounded-2xl flex items-center justify-center hover:text-brand transition opacity-40" disabled>
-                <i class="fa-solid fa-redo text-xs"></i>
-            </button>
-        </div>
+    <div class="flex gap-3 pointer-events-auto">
+      <button data-action="toggleSnap" id="snap-btn" class="glass-panel w-10 h-10 rounded-2xl flex items-center justify-center hover:text-brand transition"
+              aria-label="Snap alla griglia" title="Snap alla griglia">
+        <i class="fa-solid fa-magnet text-xs"></i>
+      </button>
+      <button data-action="toggleMeasurements" id="measure-btn" class="glass-panel w-10 h-10 rounded-2xl flex items-center justify-center hover:text-brand transition"
+              aria-label="Misure" title="Misure">
+        <i class="fa-solid fa-ruler text-xs"></i>
+      </button>
+      <button data-action="toggleLayers" class="glass-panel w-10 h-10 rounded-2xl flex items-center justify-center hover:text-brand transition"
+              aria-label="Layer" title="Layer">
+        <i class="fa-solid fa-layer-group text-xs"></i>
+      </button>
+      <button data-action="exportStoryboard" class="glass-panel w-10 h-10 rounded-2xl flex items-center justify-center hover:text-brand transition"
+              aria-label="Storyboard" title="Storyboard">
+        <i class="fa-solid fa-th text-xs"></i>
+      </button>
+      <button data-action="playScene" id="play-btn" class="glass-panel px-5 py-2.5 rounded-2xl flex items-center gap-2 text-[10px] font-extrabold text-brand border border-brand/20 hover:bg-brand/10 transition"
+              aria-label="Riproduci animazione" title="ACTION">
+        <i class="fa-solid fa-play"></i> ACTION
+      </button>
+      <button data-action="takeSnapshot" class="glass-panel w-10 h-10 rounded-2xl flex items-center justify-center hover:text-brand transition"
+              aria-label="Snapshot" title="Snapshot">
+        <i class="fa-solid fa-camera text-xs"></i>
+      </button>
+      <button data-action="toggleTheme" class="glass-panel w-10 h-10 rounded-2xl flex items-center justify-center hover:text-brand transition"
+              aria-label="Tema" title="Tema">
+        <i class="fa-solid fa-sun text-xs" id="theme-icon"></i>
+      </button>
+      <a href="https://forms.gle/VCnSQXX6EtNc66Hp6" target="_blank"
+         class="glass-panel w-10 h-10 rounded-2xl flex items-center justify-center bg-brand/10 text-brand border border-brand/20 hover:bg-brand hover:text-black transition"
+         aria-label="Feedback" title="Feedback">
+        <i class="fa-regular fa-comment-dots text-xs"></i>
+      </a>
+    </div>
+  </div>
 
-        <div class="flex gap-3 pointer-events-auto">
-            <button onclick="toggleMeasurements()" id="measure-btn" class="glass-panel w-10 h-10 rounded-2xl flex items-center justify-center hover:text-brand transition">
-                <i class="fa-solid fa-ruler text-xs"></i>
-            </button>
-            <button onclick="toggleLayers()" class="glass-panel w-10 h-10 rounded-2xl flex items-center justify-center hover:text-brand transition">
-                <i class="fa-solid fa-layer-group text-xs"></i>
-            </button>
-            <button onclick="exportStoryboard()" class="glass-panel w-10 h-10 rounded-2xl flex items-center justify-center hover:text-brand transition">
-                <i class="fa-solid fa-th text-xs"></i>
-            </button>
-            <button onclick="playScene()" id="play-btn" class="glass-panel px-5 py-2.5 rounded-2xl flex items-center gap-2 text-[10px] font-extrabold text-brand border border-brand/20 hover:bg-brand/10 transition">
-                <i class="fa-solid fa-play"></i> ACTION
-            </button>
-            <button onclick="takeSnapshot()" class="glass-panel w-10 h-10 rounded-2xl flex items-center justify-center hover:text-brand transition">
-                <i class="fa-solid fa-camera text-xs"></i>
-            </button>
-            <button onclick="toggleTheme()" class="glass-panel w-10 h-10 rounded-2xl flex items-center justify-center hover:text-brand transition">
-                <i class="fa-solid fa-sun text-xs" id="theme-icon"></i>
-            </button>
-            <a href="https://forms.gle/VCnSQXX6EtNc66Hp6" target="_blank" class="glass-panel w-10 h-10 rounded-2xl flex items-center justify-center bg-brand/10 text-brand border border-brand/20 hover:bg-brand hover:text-black transition">
-                <i class="fa-regular fa-comment-dots text-xs"></i>
-            </a>
-        </div>
+  <!-- Timeline Scrubber -->
+  <div id="timeline-container" class="fixed bottom-4 left-1/2 -translate-x-1/2 w-[600px] glass-panel rounded-2xl p-4 hidden flex-col gap-3 z-50 shadow-2xl">
+    <div class="flex justify-between items-center mb-2">
+      <span class="text-[9px] font-bold uppercase tracking-wider opacity-60">Timeline</span>
+      <button data-action="closeTimeline" class="text-xs opacity-60 hover:opacity-100 hover:text-brand" aria-label="Chiudi timeline" title="Chiudi">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+    <div class="relative h-2 bg-white/5 rounded-full overflow-hidden cursor-pointer" id="timeline-scrubber">
+      <div class="absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-brand rounded-full shadow-lg" id="timeline-playhead" style="left: 0;"></div>
+    </div>
+    <div class="flex justify-between text-[8px] opacity-40">
+      <span>0:00</span>
+      <span id="timeline-duration">0:00</span>
+    </div>
+  </div>
+
+  <!-- Scene Menu -->
+  <div id="scene-menu" class="fixed inset-0 bg-black/90 z-[70] hidden flex items-center justify-center backdrop-blur-md animate-in">
+    <div class="glass-panel w-80 rounded-3xl p-8 relative border-t border-white/10">
+      <div class="absolute inset-0" id="scene-menu-backdrop" aria-hidden="true"></div>
+      <h2 class="text-xs font-bold uppercase tracking-[0.2em] mb-6 text-brand text-center">Project Manager</h2>
+
+      <div class="mb-6 flex gap-2 relative z-10">
+        <input type="text" id="scene-name-input" class="flex-1 bg-white/5 border border-white/10 rounded-xl p-3 text-xs focus:border-brand outline-none transition"
+               placeholder="Nome scena..." aria-label="Nome scena">
+        <button data-action="saveScene" class="bg-brand text-black px-5 rounded-xl text-xs font-bold hover:opacity-90 transition shadow-lg shadow-brand/20"
+                aria-label="Salva scena" title="Salva">SAVE</button>
+      </div>
+
+      <div class="text-[9px] uppercase opacity-40 font-bold mb-3 tracking-widest relative z-10">Saved Scenes</div>
+      <div id="saved-list" class="max-h-60 overflow-y-auto space-y-2 pr-1 hide-scroll relative z-10"></div>
+    </div>
+  </div>
+
+  <!-- Toolbar -->
+  <div class="fixed bottom-10 left-1/2 -translate-x-1/2 glass-panel rounded-full p-2.5 flex gap-4 shadow-2xl z-50 scale-90 sm:scale-100 border-t border-white/10 pointer-events-auto">
+    <button data-action="addActor" class="flex flex-col items-center justify-center w-16 h-16 rounded-3xl hover:bg-white/5 active:scale-95 transition group"
+            aria-label="Aggiungi attore" title="Actor">
+      <div class="w-4 h-4 rounded-full bg-rose-500 mb-2 shadow-[0_0_15px_rgba(244,63,94,0.4)] group-hover:scale-110 transition"></div>
+      <span class="text-[9px] font-bold opacity-60 group-hover:opacity-100 group-hover:text-rose-400">ACTOR</span>
+    </button>
+    <div class="w-px h-8 bg-white/5 my-auto"></div>
+    <button data-action="addCamera" class="flex flex-col items-center justify-center w-16 h-16 rounded-3xl hover:bg-white/5 active:scale-95 transition group"
+            aria-label="Aggiungi camera" title="Camera">
+      <div class="w-6 h-4 rounded bg-brand mb-2 shadow-[0_0_15px_rgba(255,163,0,0.4)] group-hover:scale-110 transition"></div>
+      <span class="text-[9px] font-bold opacity-60 group-hover:opacity-100 text-brand">CAM</span>
+    </button>
+    <div class="w-px h-8 bg-white/5 my-auto"></div>
+    <button data-action="openPropPicker" class="flex flex-col items-center justify-center w-16 h-16 rounded-3xl hover:bg-white/5 active:scale-95 transition group"
+            aria-label="Aggiungi prop" title="Prop">
+      <div class="w-4 h-4 border border-white/50 mb-2 group-hover:scale-110 transition"></div>
+      <span class="text-[9px] font-bold opacity-60 group-hover:opacity-100">PROP</span>
+    </button>
+  </div>
+
+  <!-- Inspector -->
+  <div id="inspector" class="fixed right-6 top-1/2 -translate-y-1/2 w-72 glass-panel rounded-[32px] p-6 translate-x-[150%] transition-transform duration-300 shadow-2xl z-50 border-l border-white/10">
+    <div class="flex justify-between items-center mb-8">
+      <h2 class="text-xs font-bold opacity-40 uppercase tracking-[0.2em]">Settings</h2>
+      <button data-action="closeInspector" class="opacity-50 hover:opacity-100 hover:text-brand transition" aria-label="Chiudi inspector" title="Chiudi">
+        <i class="fa-solid fa-xmark text-lg"></i>
+      </button>
     </div>
 
-    <!-- Timeline Scrubber -->
-    <div id="timeline-container" class="fixed bottom-4 left-1/2 -translate-x-1/2 w-[600px] glass-panel rounded-2xl p-4 hidden flex-col gap-3 z-50 shadow-2xl">
-        <div class="flex justify-between items-center mb-2">
-            <span class="text-[9px] font-bold uppercase tracking-wider opacity-60">Timeline Preview</span>
-            <button onclick="closeTimeline()" class="text-xs opacity-60 hover:opacity-100 hover:text-brand">
-                <i class="fa-solid fa-xmark"></i>
-            </button>
-        </div>
-        <div class="relative h-2 bg-white/5 rounded-full overflow-hidden cursor-pointer" id="timeline-scrubber" onpointerdown="startScrub(event)">
-            <div class="absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-brand rounded-full shadow-lg" id="timeline-playhead" style="left: 0;"></div>
-        </div>
-        <div class="flex justify-between text-[8px] opacity-40">
-            <span>0:00</span>
-            <span id="timeline-duration">0:00</span>
-        </div>
+    <div class="mb-6">
+      <label class="text-[9px] uppercase font-bold opacity-40 mb-2 block tracking-wider">Identity</label>
+      <input type="text" id="insp-name" class="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-xs focus:border-brand outline-none transition font-medium" />
     </div>
 
-    <!-- Scene Menu -->
-    <div id="scene-menu" class="fixed inset-0 bg-black/90 z-[70] hidden flex items-center justify-center backdrop-blur-md animate-in" onclick="if(event.target.id==='scene-menu') this.classList.add('hidden')">
-        <div class="glass-panel w-80 rounded-3xl p-8 relative border-t border-white/10">
-            <h2 class="text-xs font-bold uppercase tracking-[0.2em] mb-6 text-brand text-center">Project Manager</h2>
-            
-            <div class="mb-6 flex gap-2">
-                <input type="text" id="scene-name-input" class="flex-1 bg-white/5 border border-white/10 rounded-xl p-3 text-xs focus:border-brand outline-none transition" placeholder="Scene Name...">
-                <button onclick="saveScene()" class="bg-brand text-black px-5 rounded-xl text-xs font-bold hover:opacity-90 transition shadow-lg shadow-brand/20">SAVE</button>
-            </div>
-            
-            <div class="text-[9px] uppercase opacity-40 font-bold mb-3 tracking-widest">Saved Scenes</div>
-            <div id="saved-list" class="max-h-60 overflow-y-auto space-y-2 pr-1 hide-scroll"></div>
-        </div>
+    <div class="mb-6">
+      <label class="text-[9px] uppercase font-bold opacity-40 mb-2 block tracking-wider">Layer</label>
+      <select id="insp-layer" class="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-xs focus:border-brand outline-none transition">
+        <option value="1">Layer 1</option>
+        <option value="2">Layer 2</option>
+        <option value="3">Layer 3</option>
+      </select>
     </div>
 
-    <!-- Toolbar -->
-    <div class="fixed bottom-10 left-1/2 -translate-x-1/2 glass-panel rounded-full p-2.5 flex gap-4 shadow-2xl z-50 scale-90 sm:scale-100 border-t border-white/10">
-        <button onclick="addObject('actor')" class="flex flex-col items-center justify-center w-16 h-16 rounded-3xl hover:bg-white/5 active:scale-95 transition group">
-            <div class="w-4 h-4 rounded-full bg-rose-500 mb-2 shadow-[0_0_15px_rgba(244,63,94,0.4)] group-hover:scale-110 transition"></div>
-            <span class="text-[9px] font-bold opacity-60 group-hover:opacity-100 group-hover:text-rose-400">ACTOR</span>
-        </button>
-        <div class="w-px h-8 bg-white/5 my-auto"></div>
-        <button onclick="addObject('camera')" class="flex flex-col items-center justify-center w-16 h-16 rounded-3xl hover:bg-white/5 active:scale-95 transition group">
-            <div class="w-6 h-4 rounded bg-brand mb-2 shadow-[0_0_15px_rgba(255,163,0,0.4)] group-hover:scale-110 transition"></div>
-            <span class="text-[9px] font-bold opacity-60 group-hover:opacity-100 text-brand">CAM</span>
-        </button>
-        <div class="w-px h-8 bg-white/5 my-auto"></div>
-        <button onclick="openPropPicker()" class="flex flex-col items-center justify-center w-16 h-16 rounded-3xl hover:bg-white/5 active:scale-95 transition group">
-            <div class="w-4 h-4 border border-white/50 mb-2 group-hover:scale-110 transition"></div>
-            <span class="text-[9px] font-bold opacity-60 group-hover:opacity-100">PROP</span>
-        </button>
+    <div id="cam-controls" class="hidden mb-6 p-4 bg-brand/5 border border-brand/20 rounded-2xl">
+      <div class="flex items-center gap-2 mb-3 text-brand">
+        <i class="fa-solid fa-crosshairs text-xs"></i>
+        <span class="text-[9px] font-bold uppercase tracking-wider">Tracking</span>
+      </div>
+      <button data-action="activateTargetMode" id="target-btn" class="w-full py-3 bg-brand/10 hover:bg-brand hover:text-black border border-brand/30 rounded-xl text-[10px] font-bold text-brand transition mb-3">
+        LINK TO ACTOR
+      </button>
+      <div id="target-status" class="hidden mb-3 text-[9px] text-center text-brand opacity-80">
+        <i class="fa-solid fa-link mr-1"></i> Locked to <span id="target-name" class="font-bold border-b border-brand/30">Target</span>
+      </div>
+      <div>
+        <label class="text-[9px] uppercase font-bold opacity-40 mb-2 block tracking-wider">FOV Angle</label>
+        <input type="range" id="fov-slider" min="20" max="120" value="60" class="w-full" />
+        <div class="text-[8px] text-center text-brand mt-1"><span id="fov-value">60</span>°</div>
+      </div>
     </div>
 
-    <!-- Inspector -->
-    <div id="inspector" class="fixed right-6 top-1/2 -translate-y-1/2 w-72 glass-panel rounded-[32px] p-6 translate-x-[150%] transition-transform duration-300 shadow-2xl z-50 border-l border-white/10">
-        <div class="flex justify-between items-center mb-8">
-            <h2 class="text-xs font-bold opacity-40 uppercase tracking-[0.2em]">Settings</h2>
-            <button onclick="closeInspector()" class="opacity-50 hover:opacity-100 hover:text-brand transition"><i class="fa-solid fa-xmark text-lg"></i></button>
+    <div class="mb-8">
+      <label class="text-[9px] uppercase font-bold opacity-40 mb-3 block tracking-wider">Style</label>
+      <div class="flex gap-3 items-center">
+        <div class="relative group">
+          <div class="w-8 h-8 rounded-full bg-gradient-to-br from-gray-700 to-gray-900 border border-white/20 flex items-center justify-center cursor-pointer group-hover:border-brand transition">
+            <i class="fa-solid fa-palette text-[10px] text-white/50 group-hover:text-brand"></i>
+          </div>
+          <input id="color-picker" type="color" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full" />
         </div>
-        
-        <div class="mb-6">
-            <label class="text-[9px] uppercase font-bold opacity-40 mb-2 block tracking-wider">Identity</label>
-            <input type="text" id="insp-name" class="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-xs focus:border-brand outline-none transition font-medium" oninput="updateLabel(this.value)">
-        </div>
-
-        <div class="mb-6">
-            <label class="text-[9px] uppercase font-bold opacity-40 mb-2 block tracking-wider">Layer</label>
-            <select id="insp-layer" class="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-xs focus:border-brand outline-none transition" onchange="updateLayer(this.value)">
-                <option value="1">Layer 1</option>
-                <option value="2">Layer 2</option>
-                <option value="3">Layer 3</option>
-            </select>
-        </div>
-
-        <div id="cam-controls" class="hidden mb-6 p-4 bg-brand/5 border border-brand/20 rounded-2xl">
-            <div class="flex items-center gap-2 mb-3 text-brand">
-                <i class="fa-solid fa-crosshairs text-xs"></i>
-                <span class="text-[9px] font-bold uppercase tracking-wider">Tracking</span>
-            </div>
-            <button onclick="activateTargetMode()" id="target-btn" class="w-full py-3 bg-brand/10 hover:bg-brand hover:text-black border border-brand/30 rounded-xl text-[10px] font-bold text-brand transition mb-3">
-                LINK TO ACTOR
-            </button>
-            <div id="target-status" class="hidden mb-3 text-[9px] text-center text-brand opacity-80">
-                <i class="fa-solid fa-link mr-1"></i> Locked to <span id="target-name" class="font-bold border-b border-brand/30">Target</span>
-            </div>
-            <div>
-                <label class="text-[9px] uppercase font-bold opacity-40 mb-2 block tracking-wider">FOV Angle</label>
-                <input type="range" id="fov-slider" min="20" max="120" value="60" class="w-full" oninput="updateFOV(this.value)">
-                <div class="text-[8px] text-center text-brand mt-1"><span id="fov-value">60</span>°</div>
-            </div>
-        </div>
-
-        <div class="mb-8">
-             <label class="text-[9px] uppercase font-bold opacity-40 mb-3 block tracking-wider">Style</label>
-             <div class="flex gap-3 items-center">
-                 <div class="relative group">
-                     <div class="w-8 h-8 rounded-full bg-gradient-to-br from-gray-700 to-gray-900 border border-white/20 flex items-center justify-center cursor-pointer group-hover:border-brand transition">
-                         <i class="fa-solid fa-palette text-[10px] text-white/50 group-hover:text-brand"></i>
-                     </div>
-                     <input type="color" class="absolute inset-0 opacity-0 cursor-pointer w-full h-full" oninput="setColor(this.value)">
-                 </div>
-                 <div class="w-px h-6 bg-white/10"></div>
-                 <button onclick="setColor('#ffa300')" class="w-6 h-6 rounded-full bg-[#ffa300] ring-2 ring-transparent hover:ring-white/30 transition hover:scale-110"></button>
-                 <button onclick="setColor('#f43f5e')" class="w-6 h-6 rounded-full bg-[#f43f5e] ring-2 ring-transparent hover:ring-white/30 transition hover:scale-110"></button>
-                 <button onclick="setColor('#0ea5e9')" class="w-6 h-6 rounded-full bg-[#0ea5e9] ring-2 ring-transparent hover:ring-white/30 transition hover:scale-110"></button>
-             </div>
-        </div>
-
-        <div class="grid grid-cols-2 gap-3 pt-6 border-t border-white/5">
-            <button onclick="addGhostPath()" class="col-span-2 py-3 bg-white/5 border border-white/10 rounded-xl text-[10px] font-bold hover:bg-white/10 hover:border-white/20 flex items-center justify-center gap-2 transition text-brand">
-                <i class="fa-solid fa-shoe-prints"></i> ADD STEP
-            </button>
-            <button onclick="deleteSelected()" class="col-span-2 py-3 bg-red-500/5 border border-red-500/10 text-red-400 text-[10px] font-bold rounded-xl hover:bg-red-500/10 transition">
-                DELETE
-            </button>
-        </div>
-    </div>
-
-    <!-- Edit Bar -->
-    <div id="edit-bar" class="fixed bottom-32 left-1/2 -translate-x-1/2 glass-panel px-6 py-3 rounded-full hidden items-center gap-8 z-50 shadow-2xl animate-in">
-        <button onclick="openInspector()" class="text-[9px] font-bold hover:text-brand flex flex-col items-center gap-1.5 transition"><i class="fa-solid fa-sliders text-sm"></i>EDIT</button>
         <div class="w-px h-6 bg-white/10"></div>
-        <button onclick="addGhostPath()" class="text-[9px] font-bold hover:text-green-400 flex flex-col items-center gap-1.5 transition"><i class="fa-solid fa-shoe-prints text-sm"></i>STEP</button>
-        <div class="w-px h-6 bg-white/10"></div>
-        <button onclick="deleteSelected()" class="text-[9px] font-bold hover:text-red-400 flex flex-col items-center gap-1.5 transition"><i class="fa-solid fa-trash text-sm"></i>DEL</button>
+        <button data-color="#ffa300" class="w-6 h-6 rounded-full bg-[#ffa300] ring-2 ring-transparent hover:ring-white/30 transition hover:scale-110" aria-label="Colore arancio"></button>
+        <button data-color="#f43f5e" class="w-6 h-6 rounded-full bg-[#f43f5e] ring-2 ring-transparent hover:ring-white/30 transition hover:scale-110" aria-label="Colore rosa"></button>
+        <button data-color="#0ea5e9" class="w-6 h-6 rounded-full bg-[#0ea5e9] ring-2 ring-transparent hover:ring-white/30 transition hover:scale-110" aria-label="Colore azzurro"></button>
+      </div>
     </div>
 
-    <!-- Prop Picker -->
-    <div id="prop-picker" class="fixed inset-0 bg-black/90 z-[60] hidden flex items-center justify-center backdrop-blur-md animate-in" onclick="if(event.target.id==='prop-picker') this.classList.add('hidden')">
-        <div class="glass-panel w-[90vw] max-w-md h-[70vh] rounded-[32px] overflow-hidden flex flex-col border border-white/10">
-            <div class="p-6 border-b border-white/5">
-                <h3 class="text-xs font-bold uppercase tracking-[0.2em] text-brand">Prop Warehouse</h3>
-            </div>
-            <div class="p-3 flex gap-3 overflow-x-auto border-b border-white/5 hide-scroll bg-black/20">
-                <button onclick="filterProps('light')" class="px-4 py-1.5 bg-brand text-black rounded-full text-[10px] font-bold shadow-lg shadow-brand/20">Lighting</button>
-                <button onclick="filterProps('furniture')" class="px-4 py-1.5 bg-white/5 hover:bg-white/10 rounded-full text-[10px] font-medium transition">Furniture</button>
-                <button onclick="filterProps('set')" class="px-4 py-1.5 bg-white/5 hover:bg-white/10 rounded-full text-[10px] font-medium transition">Set Pieces</button>
-            </div>
-            <div id="prop-grid" class="p-6 overflow-y-auto grid grid-cols-4 gap-4 content-start hide-scroll"></div>
-        </div>
+    <div class="grid grid-cols-2 gap-3 pt-6 border-t border-white/5">
+      <button data-action="addGhostPath" class="col-span-2 py-3 bg-white/5 border border-white/10 rounded-xl text-[10px] font-bold hover:bg-white/10 hover:border-white/20 flex items-center justify-center gap-2 transition text-brand">
+        <i class="fa-solid fa-shoe-prints"></i> ADD STEP
+      </button>
+      <button data-action="deleteSelected" class="col-span-2 py-3 bg-red-500/5 border border-red-500/10 text-red-400 text-[10px] font-bold rounded-xl hover:bg-red-500/10 transition">
+        DELETE
+      </button>
+    </div>
+  </div>
+
+  <!-- Edit Bar -->
+  <div id="edit-bar" class="fixed bottom-32 left-1/2 -translate-x-1/2 glass-panel px-6 py-3 rounded-full hidden items-center gap-8 z-50 shadow-2xl animate-in">
+    <button data-action="openInspector" class="text-[9px] font-bold hover:text-brand flex flex-col items-center gap-1.5 transition" aria-label="Edit">
+      <i class="fa-solid fa-sliders text-sm"></i>EDIT
+    </button>
+    <div class="w-px h-6 bg-white/10"></div>
+    <button data-action="addGhostPath" class="text-[9px] font-bold hover:text-green-400 flex flex-col items-center gap-1.5 transition" aria-label="Step">
+      <i class="fa-solid fa-shoe-prints text-sm"></i>STEP
+    </button>
+    <div class="w-px h-6 bg-white/10"></div>
+    <button data-action="deleteSelected" class="text-[9px] font-bold hover:text-red-400 flex flex-col items-center gap-1.5 transition" aria-label="Delete">
+      <i class="fa-solid fa-trash text-sm"></i>DEL
+    </button>
+  </div>
+
+  <!-- Prop Picker -->
+  <div id="prop-picker" class="fixed inset-0 bg-black/90 z-[60] hidden flex items-center justify-center backdrop-blur-md animate-in">
+    <div class="glass-panel w-[90vw] max-w-md h-[70vh] rounded-[32px] overflow-hidden flex flex-col border border-white/10">
+      <div class="p-6 border-b border-white/5">
+        <h3 class="text-xs font-bold uppercase tracking-[0.2em] text-brand">Prop Warehouse</h3>
+      </div>
+      <div class="p-3 flex gap-3 overflow-x-auto border-b border-white/5 hide-scroll bg-black/20">
+        <button data-prop-cat="light" class="px-4 py-1.5 bg-brand text-black rounded-full text-[10px] font-bold shadow-lg shadow-brand/20">Lighting</button>
+        <button data-prop-cat="furniture" class="px-4 py-1.5 bg-white/5 hover:bg-white/10 rounded-full text-[10px] font-medium transition">Furniture</button>
+        <button data-prop-cat="set" class="px-4 py-1.5 bg-white/5 hover:bg-white/10 rounded-full text-[10px] font-medium transition">Set Pieces</button>
+      </div>
+      <div id="prop-grid" class="p-6 overflow-y-auto grid grid-cols-4 gap-4 content-start hide-scroll"></div>
+    </div>
+  </div>
+
+  <!-- Layers Panel -->
+  <div id="layers-panel" class="fixed left-6 top-1/2 -translate-y-1/2 w-64 glass-panel rounded-3xl p-6 -translate-x-[150%] transition-transform duration-300 shadow-2xl z-50 border-r border-white/10">
+    <div class="flex justify-between items-center mb-6">
+      <h2 class="text-xs font-bold opacity-40 uppercase tracking-[0.2em]">Layers</h2>
+      <button data-action="toggleLayers" class="opacity-50 hover:opacity-100 hover:text-brand transition" aria-label="Chiudi layers" title="Chiudi">
+        <i class="fa-solid fa-xmark text-lg"></i>
+      </button>
     </div>
 
-    <!-- Layers Panel -->
-    <div id="layers-panel" class="fixed left-6 top-1/2 -translate-y-1/2 w-64 glass-panel rounded-3xl p-6 -translate-x-[150%] transition-transform duration-300 shadow-2xl z-50 border-r border-white/10">
-        <div class="flex justify-between items-center mb-6">
-            <h2 class="text-xs font-bold opacity-40 uppercase tracking-[0.2em]">Layers</h2>
-            <button onclick="toggleLayers()" class="opacity-50 hover:opacity-100 hover:text-brand transition"><i class="fa-solid fa-xmark text-lg"></i></button>
-        </div>
-        
-        <div class="space-y-2" id="layer-list">
-            <div class="flex items-center gap-3 p-3 bg-white/5 rounded-xl hover:bg-white/10 transition cursor-pointer" onclick="toggleLayerVisibility(1)">
-                <div class="w-6 h-6 rounded-full bg-brand flex items-center justify-center text-black text-[10px] font-bold">1</div>
-                <span class="text-xs font-medium flex-1">Layer 1</span>
-                <i class="fa-solid fa-eye text-xs opacity-60" id="layer-eye-1"></i>
-            </div>
-            <div class="flex items-center gap-3 p-3 bg-white/5 rounded-xl hover:bg-white/10 transition cursor-pointer" onclick="toggleLayerVisibility(2)">
-                <div class="w-6 h-6 rounded-full bg-rose-500 flex items-center justify-center text-white text-[10px] font-bold">2</div>
-                <span class="text-xs font-medium flex-1">Layer 2</span>
-                <i class="fa-solid fa-eye text-xs opacity-60" id="layer-eye-2"></i>
-            </div>
-            <div class="flex items-center gap-3 p-3 bg-white/5 rounded-xl hover:bg-white/10 transition cursor-pointer" onclick="toggleLayerVisibility(3)">
-                <div class="w-6 h-6 rounded-full bg-sky-500 flex items-center justify-center text-white text-[10px] font-bold">3</div>
-                <span class="text-xs font-medium flex-1">Layer 3</span>
-                <i class="fa-solid fa-eye text-xs opacity-60" id="layer-eye-3"></i>
-            </div>
-        </div>
+    <div class="space-y-2" id="layer-list">
+      <div class="flex items-center gap-3 p-3 bg-white/5 rounded-xl hover:bg-white/10 transition cursor-pointer" data-action="toggleLayerVisibility" data-layer="1">
+        <div class="w-6 h-6 rounded-full bg-brand flex items-center justify-center text-black text-[10px] font-bold">1</div>
+        <span class="text-xs font-medium flex-1">Layer 1</span>
+        <i class="fa-solid fa-eye text-xs opacity-60" id="layer-eye-1"></i>
+      </div>
+      <div class="flex items-center gap-3 p-3 bg-white/5 rounded-xl hover:bg-white/10 transition cursor-pointer" data-action="toggleLayerVisibility" data-layer="2">
+        <div class="w-6 h-6 rounded-full bg-rose-500 flex items-center justify-center text-white text-[10px] font-bold">2</div>
+        <span class="text-xs font-medium flex-1">Layer 2</span>
+        <i class="fa-solid fa-eye text-xs opacity-60" id="layer-eye-2"></i>
+      </div>
+      <div class="flex items-center gap-3 p-3 bg-white/5 rounded-xl hover:bg-white/10 transition cursor-pointer" data-action="toggleLayerVisibility" data-layer="3">
+        <div class="w-6 h-6 rounded-full bg-sky-500 flex items-center justify-center text-white text-[10px] font-bold">3</div>
+        <span class="text-xs font-medium flex-1">Layer 3</span>
+        <i class="fa-solid fa-eye text-xs opacity-60" id="layer-eye-3"></i>
+      </div>
     </div>
+  </div>
 
-    <!-- Storyboard Export Modal -->
-    <div id="storyboard-modal" class="fixed inset-0 bg-black/95 z-[80] hidden flex items-center justify-center backdrop-blur-lg" onclick="if(event.target.id==='storyboard-modal') this.classList.add('hidden')">
-        <div class="glass-panel w-[90vw] max-w-6xl max-h-[90vh] rounded-3xl overflow-hidden flex flex-col border border-white/10">
-            <div class="p-6 border-b border-white/5 flex justify-between items-center">
-                <h3 class="text-xs font-bold uppercase tracking-[0.2em] text-brand">Storyboard Export</h3>
-                <button onclick="document.getElementById('storyboard-modal').classList.add('hidden')" class="opacity-60 hover:opacity-100 hover:text-brand">
-                    <i class="fa-solid fa-xmark"></i>
-                </button>
-            </div>
-            <div class="p-6 overflow-y-auto" id="storyboard-grid"></div>
-            <div class="p-6 border-t border-white/5 flex gap-3 justify-end">
-                <button onclick="downloadStoryboard()" class="bg-brand text-black px-6 py-3 rounded-xl text-xs font-bold hover:opacity-90 transition shadow-lg shadow-brand/20">
-                    <i class="fa-solid fa-download mr-2"></i>DOWNLOAD ALL
-                </button>
-            </div>
-        </div>
+  <!-- Storyboard Export Modal -->
+  <div id="storyboard-modal" class="fixed inset-0 bg-black/95 z-[80] hidden flex items-center justify-center backdrop-blur-lg">
+    <div class="glass-panel w-[90vw] max-w-6xl max-h-[90vh] rounded-3xl overflow-hidden flex flex-col border border-white/10">
+      <div class="p-6 border-b border-white/5 flex justify-between items-center">
+        <h3 class="text-xs font-bold uppercase tracking-[0.2em] text-brand">Storyboard Export (True POV)</h3>
+        <button data-action="closeStoryboard" class="opacity-60 hover:opacity-100 hover:text-brand" aria-label="Chiudi storyboard" title="Chiudi">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div class="p-6 overflow-y-auto" id="storyboard-grid"></div>
+      <div class="p-6 border-t border-white/5 flex gap-3 justify-end items-center">
+        <div class="text-[10px] opacity-60 mr-auto">Suggerimento: rinomina le camere per avere file più ordinati.</div>
+        <button data-action="downloadStoryboardZip" class="bg-brand text-black px-6 py-3 rounded-xl text-xs font-bold hover:opacity-90 transition shadow-lg shadow-brand/20">
+          <i class="fa-solid fa-download mr-2"></i>DOWNLOAD ALL (ZIP)
+        </button>
+      </div>
     </div>
+  </div>
 
-    <script>
-        // --- CORE ENGINE ---
-        const world = document.getElementById('world');
-        const viewport = document.getElementById('viewport');
-        const svgLayer = document.getElementById('svg-layer');
-        const measurementLayer = document.getElementById('measurement-layer');
-        
-        let objects = []; 
-        let connections = []; 
-        let selectedId = null;
-        let scale = 1, panX = 0, panY = 0;
-        let targetMode = false;
-        
-        // Undo/Redo
-        let history = [];
-        let historyIndex = -1;
-        const MAX_HISTORY = 50;
+<script>
+(() => {
+  const VERSION = "cf_v8";
+  const MAX_HISTORY = 60;
+  const GRID_SNAP = 25;
 
-        // Layers
-        let layerVisibility = { 1: true, 2: true, 3: true };
-        let measurementsEnabled = false;
+  const el = {
+    viewport: document.getElementById("viewport"),
+    world: document.getElementById("world"),
+    grid: document.getElementById("grid-pattern"),
+    svg: document.getElementById("svg-layer"),
+    meas: document.getElementById("measurement-layer"),
 
-        // Mobile Gestures
-        let pointers = {};
-        let initialDist = 0, initialScale = 1;
+    sceneMenu: document.getElementById("scene-menu"),
+    sceneMenuBackdrop: document.getElementById("scene-menu-backdrop"),
+    sceneNameDisplay: document.getElementById("scene-name-display"),
+    sceneNameInput: document.getElementById("scene-name-input"),
+    savedList: document.getElementById("saved-list"),
 
-        window.onload = () => {
-            centerView();
-            loadSceneList();
-            filterProps('light');
-            saveState(); // Initial state
-        };
+    inspector: document.getElementById("inspector"),
+    editBar: document.getElementById("edit-bar"),
+    camControls: document.getElementById("cam-controls"),
+    targetStatus: document.getElementById("target-status"),
+    targetName: document.getElementById("target-name"),
 
-        function centerView() {
-            panX = window.innerWidth / 2;
-            panY = window.innerHeight / 2;
-            updateTransform();
+    inspName: document.getElementById("insp-name"),
+    inspLayer: document.getElementById("insp-layer"),
+    fovSlider: document.getElementById("fov-slider"),
+    fovValue: document.getElementById("fov-value"),
+    colorPicker: document.getElementById("color-picker"),
+
+    undoBtn: document.getElementById("undo-btn"),
+    redoBtn: document.getElementById("redo-btn"),
+    playBtn: document.getElementById("play-btn"),
+
+    propPicker: document.getElementById("prop-picker"),
+    propGrid: document.getElementById("prop-grid"),
+
+    layersPanel: document.getElementById("layers-panel"),
+
+    timeline: document.getElementById("timeline-container"),
+    timelineScrubber: document.getElementById("timeline-scrubber"),
+    timelinePlayhead: document.getElementById("timeline-playhead"),
+    timelineDuration: document.getElementById("timeline-duration"),
+
+    storyboardModal: document.getElementById("storyboard-modal"),
+    storyboardGrid: document.getElementById("storyboard-grid"),
+
+    themeIcon: document.getElementById("theme-icon"),
+    snapBtn: document.getElementById("snap-btn"),
+    measureBtn: document.getElementById("measure-btn"),
+  };
+
+  const propDB = {
+    light: [
+      { n: "Skypanel", i: "fa-table-cells", w: 40, h: 25 },
+      { n: "Spot", i: "fa-bullseye", w: 25, h: 35 },
+      { n: "Tube", i: "fa-grip-lines-vertical", w: 10, h: 50 },
+    ],
+    furniture: [
+      { n: "Chair", i: "fa-chair", w: 30, h: 30 },
+      { n: "Table", i: "fa-table", w: 60, h: 40 },
+      { n: "Bed", i: "fa-bed", w: 60, h: 80 },
+    ],
+    set: [
+      { n: "Wall", i: "fa-square", w: 100, h: 10 },
+      { n: "Window", i: "fa-border-all", w: 60, h: 5 },
+    ],
+  };
+
+  const state = {
+    view: { panX: 0, panY: 0, scale: 1 },
+    objects: [],
+    selectedId: null,
+
+    layerVisibility: { 1: true, 2: true, 3: true },
+    measurementsEnabled: false,
+    snapEnabled: false,
+
+    targetMode: false,
+
+    // animation
+    isAnimating: false,
+    animationProgress: 0,
+    animationDuration: 0,
+    animationStartTime: 0,
+    animationInitialPositions: new Map(), // id -> {x,y}
+    animationTimelines: [],
+
+    // undo/redo
+    history: [],
+    historyIndex: -1,
+
+    // pointers
+    pointers: new Map(), // id -> {clientX,clientY}
+    pinch: { initialDist: 0, initialScale: 1, mid: {x:0,y:0}, initialPan: {x:0,y:0} },
+
+    // perf flags
+    needsRender: true,
+    needsLines: true,
+    needsMeasurements: true,
+
+    // scene
+    sceneName: "Untitled",
+  };
+
+  // ---------- Helpers ----------
+  const clamp = (v, a, b) => Math.min(Math.max(v, a), b);
+  const uid = () => "obj_" + Date.now() + Math.random().toString(16).slice(2);
+
+  function worldToScreen(x, y){
+    const {panX, panY, scale} = state.view;
+    return { x: x*scale + panX, y: y*scale + panY };
+  }
+  function screenToWorld(x, y){
+    const {panX, panY, scale} = state.view;
+    return { x: (x - panX)/scale, y: (y - panY)/scale };
+  }
+
+  function normalizeKeyName(name){
+    return name.trim().replace(/\s+/g, " ").slice(0, 60);
+  }
+  function storageKey(name){ return `${VERSION}::scene::${normalizeKeyName(name)}`; }
+
+  function getObject(id){ return state.objects.find(o => o.id === id) || null; }
+  function isGhost(o){ return !!o.isGhost; }
+
+  function forwardVector(rotDeg){
+    const rad = rotDeg * Math.PI/180;
+    return { fx: Math.sin(rad), fy: -Math.cos(rad) }; // 0° = up
+  }
+
+  function sanitizeLabel(s){
+    const t = (s ?? "").toString().trim();
+    return t.length ? t.slice(0, 30) : "";
+  }
+
+  function markDirty({render=false, lines=false, meas=false} = {}){
+    if(render) state.needsRender = true;
+    if(lines) state.needsLines = true;
+    if(meas) state.needsMeasurements = true;
+    requestTick();
+  }
+
+  let rafPending = false;
+  function requestTick(){
+    if(rafPending) return;
+    rafPending = true;
+    requestAnimationFrame(tick);
+  }
+
+  function tick(){
+    rafPending = false;
+
+    if(state.needsRender){
+      renderObjectsDOM();
+      state.needsRender = false;
+    }
+    if(state.needsLines){
+      drawConnections();
+      state.needsLines = false;
+    }
+    if(state.measurementsEnabled && state.needsMeasurements){
+      drawMeasurements();
+      state.needsMeasurements = false;
+    }
+    // tracking update (cheap)
+    updateTrackingRotationsIfNeeded();
+  }
+
+  // ---------- View (pan/zoom) ----------
+  function updateTransform(){
+    const {panX, panY, scale} = state.view;
+    el.world.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
+    el.grid.style.backgroundPosition = `${-panX}px ${-panY}px`;
+  }
+
+  function centerView(){
+    state.view.panX = window.innerWidth/2;
+    state.view.panY = window.innerHeight/2;
+    state.view.scale = 1;
+    updateTransform();
+  }
+
+  function zoomAt(screenX, screenY, newScale){
+    const oldScale = state.view.scale;
+    const s = clamp(newScale, 0.1, 6);
+
+    const before = screenToWorld(screenX, screenY);
+    state.view.scale = s;
+    const after = screenToWorld(screenX, screenY);
+
+    // keep point under cursor stable
+    state.view.panX += (after.x - before.x) * s;
+    state.view.panY += (after.y - before.y) * s;
+
+    updateTransform();
+    markDirty({lines:true, meas:true});
+  }
+
+  // ---------- Objects Factory ----------
+  function addObject(type, opts = {}){
+    const id = uid();
+    const wPos = screenToWorld(window.innerWidth/2, window.innerHeight/2);
+    const base = {
+      id,
+      type,
+      x: opts.x ?? wPos.x,
+      y: opts.y ?? wPos.y,
+      rot: opts.rot ?? (type === "camera" ? 0 : 0),
+      layer: opts.layer ?? "1",
+      label: sanitizeLabel(opts.label ?? (type === "camera" ? "CAM" : type === "actor" ? "Actor" : "Prop")),
+      color: opts.color ?? (type === "actor" ? "#f43f5e" : type === "camera" ? "var(--brand)" : ""),
+      w: opts.w ?? (type === "prop" ? 40 : 0),
+      h: opts.h ?? (type === "prop" ? 25 : 0),
+      icon: opts.icon ?? (type === "prop" ? "fa-cube" : ""),
+      fov: opts.fov ?? 60,
+      targetId: opts.targetId ?? null,
+      nextPathId: opts.nextPathId ?? null,
+      isGhost: !!opts.isGhost,
+    };
+
+    state.objects.push(base);
+    selectObject(id);
+    markDirty({render:true, lines:true, meas:true});
+    saveState();
+    return id;
+  }
+
+  function cloneAsGhost(sourceId){
+    const src = getObject(sourceId);
+    if(!src) return null;
+
+    // clone visual data robustly (props included)
+    const ghostId = addObject(src.type, {
+      x: src.x + 60,
+      y: src.y,
+      rot: src.rot,
+      layer: src.layer,
+      label: "Step",
+      color: src.color,
+      w: src.w,
+      h: src.h,
+      icon: src.icon,
+      fov: src.fov,
+      isGhost: true
+    });
+
+    // link chain
+    const parent = src;
+    parent.nextPathId = ghostId;
+
+    markDirty({render:true, lines:true, meas:true});
+    saveState();
+    return ghostId;
+  }
+
+  // ---------- DOM Render ----------
+  function ensureElementForObject(o){
+    let node = document.getElementById(o.id);
+    if(node) return node;
+
+    node = document.createElement("div");
+    node.id = o.id;
+    node.className = "scene-object group";
+    node.tabIndex = -1;
+
+    // event delegation: we attach per-object pointerdown for drag
+    node.addEventListener("pointerdown", (e) => onObjectPointerDown(e, o.id));
+
+    // handles
+    const rotateHandle = document.createElement("div");
+    rotateHandle.className = "control-handle rotate-handle";
+    rotateHandle.innerHTML = `<i class="fa-solid fa-rotate"></i>`;
+    rotateHandle.addEventListener("pointerdown", (e) => onRotatePointerDown(e, o.id));
+
+    const resizeHandle = document.createElement("div");
+    resizeHandle.className = "control-handle resize-handle";
+    resizeHandle.addEventListener("pointerdown", (e) => onResizePointerDown(e, o.id));
+
+    node.appendChild(rotateHandle);
+    node.appendChild(resizeHandle);
+
+    el.world.appendChild(node);
+    return node;
+  }
+
+  function buildVisualHTML(o){
+    if(o.type === "camera"){
+      // cone width depends on fov
+      const spread = (o.fov * 2);
+      return `
+        <div class="fov-cone" style="border-left-width:${spread}px; border-right-width:${spread}px;"></div>
+        <div class="cam-body object-visual flex items-center justify-center">
+          <div class="w-1.5 h-1.5 bg-black/50 rounded-full"></div>
+        </div>
+      `;
+    }
+    if(o.type === "actor"){
+      return `
+        <div class="w-10 h-10 rounded-full object-visual shadow-lg relative border-2 border-white/20"
+             style="background-color:${o.color || "#f43f5e"}">
+          <div class="absolute top-0 left-1/2 -translate-x-1/2 w-2 h-2 bg-white rounded-full -mt-1"></div>
+        </div>
+      `;
+    }
+    // prop
+    const w = Math.max(20, o.w || 40);
+    const h = Math.max(20, o.h || 25);
+    const bg = o.color ? `background-color:${o.color}; border-color:${o.color};` : "";
+    return `
+      <div class="prop-visual object-visual bg-white/5 rounded-xl text-white/80"
+           style="width:${w}px; height:${h}px; ${bg}">
+        <i class="fa-solid ${o.icon || "fa-cube"} text-lg"></i>
+      </div>
+    `;
+  }
+
+  function renderObjectsDOM(){
+    // remove old nodes not in state
+    const ids = new Set(state.objects.map(o => o.id));
+    [...el.world.querySelectorAll(".scene-object")].forEach(n => {
+      if(!ids.has(n.id)) n.remove();
+    });
+
+    state.objects.forEach(o => {
+      const node = ensureElementForObject(o);
+
+      node.classList.toggle("ghost", !!o.isGhost);
+      node.classList.toggle("hidden-layer", !state.layerVisibility[o.layer]);
+      node.classList.toggle("selected", state.selectedId === o.id);
+
+      // position
+      node.style.left = `${o.x}px`;
+      node.style.top = `${o.y}px`;
+
+      // rotation: keep same logic: 0° = up
+      node.style.transform = `translate(-50%, -50%) rotate(${o.rot}deg)`;
+
+      // content: rebuild if missing or type mismatch (simple approach)
+      const currentType = node.dataset.type;
+      if(currentType !== o.type || !node.querySelector(".object-visual")){
+        node.dataset.type = o.type;
+        node.innerHTML = `
+          ${buildVisualHTML(o)}
+          <div class="text-[8px] font-bold mt-3 opacity-0 group-hover:opacity-100 bg-black/80 text-white px-2 py-1 rounded-md backdrop-blur-md label-tag whitespace-nowrap transition-opacity border border-white/10 pointer-events-none">
+            ${o.label}
+          </div>
+          <div class="control-handle rotate-handle"><i class="fa-solid fa-rotate"></i></div>
+          <div class="control-handle resize-handle"></div>
+          <div class="layer-badge">${o.layer}</div>
+        `;
+
+        // rebind handles after innerHTML
+        const rh = node.querySelector(".rotate-handle");
+        const zh = node.querySelector(".resize-handle");
+        rh.addEventListener("pointerdown", (e) => onRotatePointerDown(e, o.id));
+        zh.addEventListener("pointerdown", (e) => onResizePointerDown(e, o.id));
+      } else {
+        // update label, layer badge, fov cone, prop dimensions/colors
+        const label = node.querySelector(".label-tag");
+        if(label) label.textContent = o.label;
+
+        const badge = node.querySelector(".layer-badge");
+        if(badge) badge.textContent = o.layer;
+
+        if(o.type === "camera"){
+          const cone = node.querySelector(".fov-cone");
+          if(cone){
+            const spread = (o.fov * 2);
+            cone.style.borderLeftWidth = `${spread}px`;
+            cone.style.borderRightWidth = `${spread}px`;
+          }
         }
-
-        // --- UNDO/REDO SYSTEM ---
-        function saveState() {
-            // Capture current state
-            const state = {
-                objects: objects.map(o => {
-                    const el = document.getElementById(o.id);
-                    return { 
-                        ...o, 
-                        left: el.style.left, 
-                        top: el.style.top, 
-                        rot: el.dataset.rot,
-                        label: el.querySelector('.label-tag').innerText,
-                        color: el.querySelector('.object-visual').style.backgroundColor,
-                        width: el.querySelector('.object-visual').style.width || '',
-                        height: el.querySelector('.object-visual').style.height || '',
-                        layer: el.dataset.layer || '1',
-                        fov: el.dataset.fov || '60'
-                    };
-                }),
-                connections: connections.map(c => ({ from: c.from, to: c.to }))
-            };
-
-            // Remove future history if we're not at the end
-            if (historyIndex < history.length - 1) {
-                history = history.slice(0, historyIndex + 1);
-            }
-
-            history.push(JSON.stringify(state));
-            if (history.length > MAX_HISTORY) {
-                history.shift();
+        if(o.type === "prop"){
+          const vis = node.querySelector(".object-visual");
+          if(vis){
+            vis.style.width = `${Math.max(20, o.w || 40)}px`;
+            vis.style.height = `${Math.max(20, o.h || 25)}px`;
+            if(o.color){
+              vis.style.backgroundColor = o.color;
+              vis.style.borderColor = o.color;
             } else {
-                historyIndex++;
+              vis.style.backgroundColor = "";
+              vis.style.borderColor = "";
             }
-
-            updateUndoRedoButtons();
+            const icon = vis.querySelector("i");
+            if(icon) icon.className = `fa-solid ${o.icon || "fa-cube"} text-lg`;
+          }
         }
-
-        function undo() {
-            if (historyIndex > 0) {
-                historyIndex--;
-                restoreState(JSON.parse(history[historyIndex]));
-                updateUndoRedoButtons();
-            }
+        if(o.type === "actor"){
+          const vis = node.querySelector(".object-visual");
+          if(vis) vis.style.backgroundColor = o.color || "#f43f5e";
         }
+      }
 
-        function redo() {
-            if (historyIndex < history.length - 1) {
-                historyIndex++;
-                restoreState(JSON.parse(history[historyIndex]));
-                updateUndoRedoButtons();
-            }
+      // keep label readable (counter-rotate)
+      const label = node.querySelector(".label-tag");
+      if(label) label.style.transform = `rotate(${-o.rot}deg)`;
+    });
+
+    // edit bar
+    const hasSel = !!state.selectedId;
+    el.editBar.classList.toggle("hidden", !hasSel);
+    el.editBar.classList.toggle("flex", hasSel);
+
+    applyLayerVisibilityIcons();
+  }
+
+  // ---------- Connections ----------
+  function drawConnections(){
+    el.svg.innerHTML = "";
+    const off = 5000;
+
+    state.objects.forEach(o => {
+      if(!o.nextPathId) return;
+      const to = getObject(o.nextPathId);
+      if(!to) return;
+
+      const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+      line.setAttribute("stroke", "#ffa300");
+      line.setAttribute("stroke-dasharray", "4,4");
+      line.setAttribute("opacity", "0.6");
+      line.setAttribute("stroke-width", "1.5");
+      line.setAttribute("x1", (o.x + off).toString());
+      line.setAttribute("y1", (o.y + off).toString());
+      line.setAttribute("x2", (to.x + off).toString());
+      line.setAttribute("y2", (to.y + off).toString());
+      el.svg.appendChild(line);
+    });
+  }
+
+  // ---------- Measurements ----------
+  function drawMeasurements(){
+    el.meas.innerHTML = "";
+    if(!state.measurementsEnabled || !state.selectedId) return;
+
+    const off = 5000;
+    const s = getObject(state.selectedId);
+    if(!s) return;
+
+    state.objects.forEach(o => {
+      if(o.id === s.id) return;
+      if(!state.layerVisibility[o.layer]) return;
+
+      const dx = o.x - s.x;
+      const dy = o.y - s.y;
+      const dist = Math.hypot(dx, dy);
+      const angle = Math.atan2(dy, dx) * (180/Math.PI);
+
+      const line = document.createElementNS("http://www.w3.org/2000/svg","line");
+      line.setAttribute("class","measurement-line");
+      line.setAttribute("x1", (s.x+off).toString());
+      line.setAttribute("y1", (s.y+off).toString());
+      line.setAttribute("x2", (o.x+off).toString());
+      line.setAttribute("y2", (o.y+off).toString());
+      el.meas.appendChild(line);
+
+      const text = document.createElementNS("http://www.w3.org/2000/svg","text");
+      text.setAttribute("class","measurement-text");
+      text.setAttribute("x", ((s.x+o.x)/2 + off).toString());
+      text.setAttribute("y", ((s.y+o.y)/2 + off - 6).toString());
+      text.setAttribute("text-anchor","middle");
+      text.textContent = `${Math.round(dist)}px / ${Math.round(angle)}°`;
+      el.meas.appendChild(text);
+    });
+  }
+
+  // ---------- Selection + Inspector ----------
+  function selectObject(id){
+    state.selectedId = id;
+
+    const o = getObject(id);
+    if(!o) return;
+
+    el.inspName.value = o.label;
+    el.inspLayer.value = o.layer;
+
+    if(o.type === "camera"){
+      el.camControls.classList.remove("hidden");
+      el.fovSlider.value = String(o.fov ?? 60);
+      el.fovValue.textContent = String(o.fov ?? 60);
+
+      if(o.targetId){
+        el.targetStatus.classList.remove("hidden");
+        const t = getObject(o.targetId);
+        el.targetName.textContent = t ? t.label : "Unknown";
+      } else {
+        el.targetStatus.classList.add("hidden");
+      }
+    } else {
+      el.camControls.classList.add("hidden");
+    }
+
+    markDirty({render:true, meas:true});
+  }
+
+  function deselect(){
+    state.selectedId = null;
+    el.targetStatus.classList.add("hidden");
+    closeInspector();
+    markDirty({render:true, meas:true});
+  }
+
+  function openInspector(){ el.inspector.style.transform = "translateY(-50%) translateX(0)"; }
+  function closeInspector(){ el.inspector.style.transform = "translateY(-50%) translateX(150%)"; }
+
+  // ---------- Tracking ----------
+  function updateTrackingRotationsIfNeeded(){
+    // cameras locked to actor
+    let changed = false;
+    state.objects.forEach(o => {
+      if(o.type !== "camera" || !o.targetId) return;
+      const t = getObject(o.targetId);
+      if(!t) return;
+
+      const dx = t.x - o.x;
+      const dy = t.y - o.y;
+      const ang = Math.atan2(dy, dx) * (180/Math.PI) + 90;
+      const newRot = ang;
+      if(Math.abs(newRot - o.rot) > 0.001){
+        o.rot = newRot;
+        changed = true;
+      }
+    });
+    if(changed) markDirty({render:true, lines:true, meas:true});
+  }
+
+  // ---------- Undo/Redo ----------
+  function snapshotState(){
+    // solo dati "modellati" + flags, niente DOM
+    return {
+      sceneName: state.sceneName,
+      view: { ...state.view },
+      objects: state.objects.map(o => ({...o})),
+      layerVisibility: { ...state.layerVisibility },
+      measurementsEnabled: state.measurementsEnabled,
+      snapEnabled: state.snapEnabled,
+    };
+  }
+
+  function restoreSnapshot(snap){
+    state.sceneName = snap.sceneName ?? "Untitled";
+    state.view = { ...snap.view };
+    state.objects = (snap.objects ?? []).map(o => ({...o}));
+    state.layerVisibility = { ...snap.layerVisibility };
+    state.measurementsEnabled = !!snap.measurementsEnabled;
+    state.snapEnabled = !!snap.snapEnabled;
+    state.selectedId = null;
+    state.targetMode = false;
+
+    el.sceneNameDisplay.textContent = state.sceneName;
+
+    updateTransform();
+    el.meas.innerHTML = "";
+    markDirty({render:true, lines:true, meas:true});
+    updateUndoRedoButtons();
+    updateTopButtonsState();
+  }
+
+  function saveState(){
+    const snap = snapshotState();
+
+    if(state.historyIndex < state.history.length - 1){
+      state.history = state.history.slice(0, state.historyIndex + 1);
+    }
+    state.history.push(JSON.stringify(snap));
+    if(state.history.length > MAX_HISTORY){
+      state.history.shift();
+    } else {
+      state.historyIndex++;
+    }
+    updateUndoRedoButtons();
+  }
+
+  function undo(){
+    if(state.historyIndex <= 0) return;
+    state.historyIndex--;
+    const snap = JSON.parse(state.history[state.historyIndex]);
+    restoreSnapshot(snap);
+  }
+
+  function redo(){
+    if(state.historyIndex >= state.history.length - 1) return;
+    state.historyIndex++;
+    const snap = JSON.parse(state.history[state.historyIndex]);
+    restoreSnapshot(snap);
+  }
+
+  function updateUndoRedoButtons(){
+    el.undoBtn.disabled = !(state.historyIndex > 0);
+    el.redoBtn.disabled = !(state.historyIndex < state.history.length - 1);
+    el.undoBtn.classList.toggle("opacity-40", el.undoBtn.disabled);
+    el.redoBtn.classList.toggle("opacity-40", el.redoBtn.disabled);
+  }
+
+  function updateTopButtonsState(){
+    el.measureBtn.classList.toggle("text-brand", state.measurementsEnabled);
+    el.snapBtn.classList.toggle("text-brand", state.snapEnabled);
+    // theme icon
+    const isLight = document.body.classList.contains("light-mode");
+    el.themeIcon.className = `fa-solid ${isLight ? "fa-moon" : "fa-sun"} text-xs`;
+  }
+
+  // ---------- Scene Manager ----------
+  function saveScene(){
+    const name = normalizeKeyName(el.sceneNameInput.value || `Scene ${Date.now()}`);
+    state.sceneName = name;
+    el.sceneNameDisplay.textContent = name;
+    el.sceneNameInput.value = name;
+
+    const snap = snapshotState();
+    localStorage.setItem(storageKey(name), JSON.stringify(snap));
+    loadSceneList();
+  }
+
+  function loadSceneList(){
+    el.savedList.innerHTML = "";
+    const keys = [];
+    for(let i=0;i<localStorage.length;i++){
+      const k = localStorage.key(i);
+      if(k && k.startsWith(`${VERSION}::scene::`)) keys.push(k);
+    }
+    keys.sort((a,b) => a.localeCompare(b));
+
+    keys.forEach(k => {
+      const name = k.split("::scene::")[1] || "Scene";
+      const row = document.createElement("div");
+      row.className = "flex justify-between items-center bg-white/5 p-3 rounded-xl text-[10px]";
+      row.innerHTML = `
+        <span class="font-bold text-white/70">${name}</span>
+        <div class="flex gap-3">
+          <button class="text-brand hover:text-white" data-open="${name}">OPEN</button>
+          <button class="text-red-400 hover:text-white" data-del="${name}" aria-label="Elimina scena" title="Elimina">
+            <i class="fa-solid fa-trash"></i>
+          </button>
+        </div>
+      `;
+      row.querySelector("[data-open]").addEventListener("click", () => loadScene(name));
+      row.querySelector("[data-del]").addEventListener("click", () => deleteScene(name));
+      el.savedList.appendChild(row);
+    });
+  }
+
+  function loadScene(name){
+    const raw = localStorage.getItem(storageKey(name));
+    if(!raw) return;
+    const snap = JSON.parse(raw);
+    restoreSnapshot(snap);
+
+    // reset history to avoid confusion
+    state.history = [];
+    state.historyIndex = -1;
+    saveState();
+
+    closeSceneMenu();
+  }
+
+  function deleteScene(name){
+    localStorage.removeItem(storageKey(name));
+    loadSceneList();
+  }
+
+  function createNewScene(){
+    state.sceneName = "Untitled";
+    el.sceneNameDisplay.textContent = "Untitled";
+    el.sceneNameInput.value = "";
+
+    state.objects = [];
+    state.selectedId = null;
+    state.targetMode = false;
+    state.measurementsEnabled = false;
+    state.snapEnabled = false;
+    state.layerVisibility = {1:true,2:true,3:true};
+
+    el.svg.innerHTML = "";
+    el.meas.innerHTML = "";
+
+    // reset history
+    state.history = [];
+    state.historyIndex = -1;
+
+    centerView();
+    updateTopButtonsState();
+    markDirty({render:true, lines:true, meas:true});
+    saveState();
+    closeSceneMenu();
+  }
+
+  function openSceneMenu(){
+    el.sceneMenu.classList.remove("hidden");
+    el.sceneMenu.classList.add("flex");
+    loadSceneList();
+  }
+
+  function closeSceneMenu(){
+    el.sceneMenu.classList.add("hidden");
+    el.sceneMenu.classList.remove("flex");
+  }
+
+  // ---------- Layers ----------
+  function toggleLayers(){
+    const p = el.layersPanel;
+    const isHidden = p.style.transform.includes("-150%") || p.classList.contains("-translate-x-[150%]");
+    p.style.transform = isHidden ? "translateY(-50%) translateX(0)" : "translateY(-50%) translateX(-150%)";
+  }
+
+  function toggleLayerVisibility(layer){
+    state.layerVisibility[layer] = !state.layerVisibility[layer];
+    applyLayerVisibilityIcons();
+    markDirty({render:true, meas:true});
+    saveState();
+  }
+
+  function applyLayerVisibilityIcons(){
+    [1,2,3].forEach(l => {
+      const eye = document.getElementById(`layer-eye-${l}`);
+      if(!eye) return;
+      eye.className = state.layerVisibility[l] ? "fa-solid fa-eye text-xs opacity-60" : "fa-solid fa-eye-slash text-xs opacity-60";
+    });
+  }
+
+  function updateLayer(layer){
+    if(!state.selectedId) return;
+    const o = getObject(state.selectedId);
+    if(!o) return;
+    o.layer = String(layer);
+    markDirty({render:true, meas:true});
+    saveState();
+  }
+
+  // ---------- Measurements toggle ----------
+  function toggleMeasurements(){
+    state.measurementsEnabled = !state.measurementsEnabled;
+    if(!state.measurementsEnabled) el.meas.innerHTML = "";
+    updateTopButtonsState();
+    markDirty({meas:true});
+    saveState();
+  }
+
+  // ---------- Snap toggle ----------
+  function toggleSnap(){
+    state.snapEnabled = !state.snapEnabled;
+    updateTopButtonsState();
+    saveState();
+  }
+
+  // ---------- Theme ----------
+  function toggleTheme(){
+    document.body.classList.toggle("light-mode");
+    updateTopButtonsState();
+  }
+
+  // ---------- Props ----------
+  function filterProps(cat){
+    el.propGrid.innerHTML = "";
+    (propDB[cat] || []).forEach(p => {
+      const b = document.createElement("button");
+      b.className = "aspect-square bg-white/5 border border-white/10 rounded-2xl flex flex-col items-center justify-center hover:bg-white/10 transition";
+      b.innerHTML = `<i class="fa-solid ${p.i} text-xl mb-2 text-white/50"></i><span class="text-[8px] uppercase font-bold text-brand">${p.n}</span>`;
+      b.addEventListener("click", () => {
+        addObject("prop", { label: p.n, icon: p.i, w: p.w, h: p.h });
+        closePropPicker();
+      });
+      el.propGrid.appendChild(b);
+    });
+  }
+
+  function openPropPicker(){
+    el.propPicker.classList.remove("hidden");
+    el.propPicker.classList.add("flex");
+  }
+  function closePropPicker(){
+    el.propPicker.classList.add("hidden");
+    el.propPicker.classList.remove("flex");
+  }
+
+  // ---------- Pointer Navigation (pan/zoom) ----------
+  function onViewportPointerDown(e){
+    // ignore if clicking object/handle
+    if(e.target.closest(".scene-object") || e.target.closest(".control-handle")) return;
+
+    el.viewport.setPointerCapture(e.pointerId);
+    state.pointers.set(e.pointerId, { clientX: e.clientX, clientY: e.clientY });
+
+    // deselect when clicking empty
+    deselect();
+
+    if(state.pointers.size === 2){
+      const pts = [...state.pointers.values()];
+      const dx = pts[1].clientX - pts[0].clientX;
+      const dy = pts[1].clientY - pts[0].clientY;
+      state.pinch.initialDist = Math.hypot(dx, dy);
+      state.pinch.initialScale = state.view.scale;
+      state.pinch.initialPan = { x: state.view.panX, y: state.view.panY };
+      state.pinch.mid = { x: (pts[0].clientX + pts[1].clientX)/2, y: (pts[0].clientY + pts[1].clientY)/2 };
+    }
+  }
+
+  function onViewportPointerMove(e){
+    if(!state.pointers.has(e.pointerId)) return;
+
+    const prev = state.pointers.get(e.pointerId);
+    state.pointers.set(e.pointerId, { clientX: e.clientX, clientY: e.clientY });
+
+    const pts = [...state.pointers.values()];
+    if(pts.length === 2){
+      const dx = pts[1].clientX - pts[0].clientX;
+      const dy = pts[1].clientY - pts[0].clientY;
+      const dist = Math.hypot(dx, dy);
+      if(state.pinch.initialDist > 0){
+        const factor = dist / state.pinch.initialDist;
+        const newScale = clamp(state.pinch.initialScale * factor, 0.1, 6);
+
+        // zoom around midpoint
+        zoomAt(state.pinch.mid.x, state.pinch.mid.y, newScale);
+      }
+    } else if(pts.length === 1){
+      const dx = e.clientX - prev.clientX;
+      const dy = e.clientY - prev.clientY;
+      state.view.panX += dx;
+      state.view.panY += dy;
+      updateTransform();
+      markDirty({lines:true, meas:true});
+    }
+  }
+
+  function onViewportPointerUp(e){
+    if(state.pointers.has(e.pointerId)){
+      state.pointers.delete(e.pointerId);
+    }
+    try{ el.viewport.releasePointerCapture(e.pointerId); } catch {}
+  }
+
+  function onViewportPointerCancel(e){
+    if(state.pointers.has(e.pointerId)){
+      state.pointers.delete(e.pointerId);
+    }
+    try{ el.viewport.releasePointerCapture(e.pointerId); } catch {}
+  }
+
+  // ---------- Object interactions (drag/rotate/resize) ----------
+  function onObjectPointerDown(e, id){
+    if(e.target.closest(".control-handle")) return;
+    e.stopPropagation();
+
+    if(state.targetMode){
+      const clicked = getObject(id);
+      if(clicked && clicked.type === "actor" && state.selectedId){
+        const cam = getObject(state.selectedId);
+        if(cam && cam.type === "camera"){
+          cam.targetId = clicked.id;
+          state.targetMode = false;
+          document.body.style.cursor = "default";
+          selectObject(cam.id);
+          saveState();
+          return;
         }
+      }
+    }
 
-        function updateUndoRedoButtons() {
-            const undoBtn = document.getElementById('undo-btn');
-            const redoBtn = document.getElementById('redo-btn');
-            
-            if (historyIndex > 0) {
-                undoBtn.disabled = false;
-                undoBtn.classList.remove('opacity-40');
-            } else {
-                undoBtn.disabled = true;
-                undoBtn.classList.add('opacity-40');
-            }
+    selectObject(id);
 
-            if (historyIndex < history.length - 1) {
-                redoBtn.disabled = false;
-                redoBtn.classList.remove('opacity-40');
-            } else {
-                redoBtn.disabled = true;
-                redoBtn.classList.add('opacity-40');
-            }
+    const o = getObject(id);
+    if(!o) return;
+
+    const start = { x: o.x, y: o.y, px: e.clientX, py: e.clientY };
+
+    const node = document.getElementById(id);
+    node.setPointerCapture(e.pointerId);
+
+    function move(ev){
+      const dx = (ev.clientX - start.px) / state.view.scale;
+      const dy = (ev.clientY - start.py) / state.view.scale;
+
+      let nx = start.x + dx;
+      let ny = start.y + dy;
+
+      if(state.snapEnabled){
+        nx = Math.round(nx / GRID_SNAP) * GRID_SNAP;
+        ny = Math.round(ny / GRID_SNAP) * GRID_SNAP;
+      }
+
+      o.x = nx; o.y = ny;
+      markDirty({render:true, lines:true, meas:true});
+    }
+
+    function up(){
+      node.removeEventListener("pointermove", move);
+      node.removeEventListener("pointerup", up);
+      node.removeEventListener("pointercancel", up);
+      try{ node.releasePointerCapture(e.pointerId); } catch {}
+      saveState();
+    }
+
+    node.addEventListener("pointermove", move);
+    node.addEventListener("pointerup", up, { once:true });
+    node.addEventListener("pointercancel", up, { once:true });
+  }
+
+  function onRotatePointerDown(e, id){
+    e.stopPropagation();
+    selectObject(id);
+
+    const o = getObject(id);
+    const node = document.getElementById(id);
+    if(!o || !node) return;
+
+    node.setPointerCapture(e.pointerId);
+
+    function move(ev){
+      const rect = node.getBoundingClientRect();
+      const cx = rect.left + rect.width/2;
+      const cy = rect.top + rect.height/2;
+      const ang = Math.atan2(ev.clientY - cy, ev.clientX - cx) * (180/Math.PI) + 90;
+      o.rot = ang;
+      markDirty({render:true, lines:true, meas:true});
+    }
+
+    function up(){
+      node.removeEventListener("pointermove", move);
+      node.removeEventListener("pointerup", up);
+      node.removeEventListener("pointercancel", up);
+      try{ node.releasePointerCapture(e.pointerId); } catch {}
+      saveState();
+    }
+
+    node.addEventListener("pointermove", move);
+    node.addEventListener("pointerup", up, { once:true });
+    node.addEventListener("pointercancel", up, { once:true });
+  }
+
+  function onResizePointerDown(e, id){
+    e.stopPropagation();
+    selectObject(id);
+
+    const o = getObject(id);
+    const node = document.getElementById(id);
+    if(!o || !node) return;
+    if(o.type !== "prop") return; // resize solo prop (puoi estenderlo)
+
+    node.setPointerCapture(e.pointerId);
+
+    const start = { w: o.w || 40, h: o.h || 25, px: e.clientX, py: e.clientY };
+
+    function move(ev){
+      const dx = (ev.clientX - start.px) / state.view.scale;
+      const dy = (ev.clientY - start.py) / state.view.scale;
+
+      o.w = Math.max(20, start.w + dx);
+      o.h = Math.max(20, start.h + dy);
+
+      if(state.snapEnabled){
+        o.w = Math.round(o.w / GRID_SNAP) * GRID_SNAP;
+        o.h = Math.round(o.h / GRID_SNAP) * GRID_SNAP;
+      }
+
+      markDirty({render:true, lines:true, meas:true});
+    }
+
+    function up(){
+      node.removeEventListener("pointermove", move);
+      node.removeEventListener("pointerup", up);
+      node.removeEventListener("pointercancel", up);
+      try{ node.releasePointerCapture(e.pointerId); } catch {}
+      saveState();
+    }
+
+    node.addEventListener("pointermove", move);
+    node.addEventListener("pointerup", up, { once:true });
+    node.addEventListener("pointercancel", up, { once:true });
+  }
+
+  // ---------- Inspector bindings ----------
+  function updateLabel(val){
+    if(!state.selectedId) return;
+    const o = getObject(state.selectedId);
+    if(!o) return;
+    o.label = sanitizeLabel(val) || (o.type === "camera" ? "CAM" : o.type);
+    markDirty({render:true});
+  }
+
+  function setColor(hex){
+    if(!state.selectedId) return;
+    const o = getObject(state.selectedId);
+    if(!o) return;
+
+    if(o.type === "camera"){
+      // volendo puoi usare un colore camera: qui lo usiamo solo per elementi non-camera
+      o.color = hex;
+    } else {
+      o.color = hex;
+    }
+    markDirty({render:true});
+  }
+
+  function updateFOV(val){
+    if(!state.selectedId) return;
+    const o = getObject(state.selectedId);
+    if(!o || o.type !== "camera") return;
+    o.fov = clamp(parseInt(val,10) || 60, 20, 120);
+    el.fovValue.textContent = String(o.fov);
+    markDirty({render:true});
+    saveState();
+  }
+
+  function activateTargetMode(){
+    if(!state.selectedId) return;
+    const o = getObject(state.selectedId);
+    if(!o || o.type !== "camera") return;
+    state.targetMode = true;
+    document.body.style.cursor = "crosshair";
+    closeInspector();
+  }
+
+  // ---------- Delete + chain repair ----------
+  function deleteSelected(){
+    if(!state.selectedId) return;
+    const id = state.selectedId;
+
+    // repair chain: find parent with nextPathId == id
+    const parent = state.objects.find(o => o.nextPathId === id) || null;
+    const current = getObject(id);
+
+    if(parent && current){
+      // if current has next, reconnect parent to current.next
+      if(current.nextPathId){
+        parent.nextPathId = current.nextPathId;
+      } else {
+        parent.nextPathId = null;
+      }
+    }
+
+    // remove target refs to this object
+    state.objects.forEach(o => {
+      if(o.targetId === id) o.targetId = null;
+      if(o.nextPathId === id) o.nextPathId = null;
+    });
+
+    // remove object
+    state.objects = state.objects.filter(o => o.id !== id);
+    deselect();
+
+    markDirty({render:true, lines:true, meas:true});
+    saveState();
+  }
+
+  // ---------- Ghost Path ----------
+  function addGhostPath(){
+    if(!state.selectedId) return;
+    cloneAsGhost(state.selectedId);
+  }
+
+  // ---------- Animation playback (model-driven) ----------
+  function buildTimelines(){
+    const roots = state.objects.filter(o => !o.isGhost && !!o.nextPathId);
+    const timelines = [];
+
+    roots.forEach(root => {
+      const path = [];
+      let cur = root;
+      let guard = 0;
+      while(cur.nextPathId && guard++ < 200){
+        const nxt = getObject(cur.nextPathId);
+        if(!nxt) break;
+        path.push({ x: nxt.x, y: nxt.y });
+        cur = nxt;
+      }
+      timelines.push({ id: root.id, path });
+    });
+
+    return timelines;
+  }
+
+  function formatMs(ms){
+    const m = Math.floor(ms/60000);
+    const s = Math.floor((ms%60000)/1000);
+    return `${m}:${String(s).padStart(2,"0")}`;
+  }
+
+  function playScene(){
+    if(state.isAnimating) return;
+
+    const timelines = buildTimelines();
+    if(timelines.length === 0){
+      // niente da animare
+      return;
+    }
+
+    state.animationTimelines = timelines;
+    state.animationInitialPositions.clear();
+    timelines.forEach(tl => {
+      const o = getObject(tl.id);
+      if(o) state.animationInitialPositions.set(tl.id, { x: o.x, y: o.y });
+    });
+
+    const stepDuration = 1400;
+    const totalSteps = Math.max(...timelines.map(t => t.path.length));
+    const totalDuration = Math.max(1, totalSteps * stepDuration);
+
+    state.animationDuration = totalDuration;
+    state.animationStartTime = performance.now();
+    state.isAnimating = true;
+    state.animationProgress = 0;
+
+    el.timeline.classList.remove("hidden");
+    el.timeline.classList.add("flex");
+    el.timelineDuration.textContent = formatMs(totalDuration);
+
+    el.playBtn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> RUNNING`;
+
+    requestAnimationFrame(animationLoop);
+  }
+
+  function animationLoop(now){
+    const elapsed = now - state.animationStartTime;
+    const progress = clamp(elapsed / state.animationDuration, 0, 1);
+    state.animationProgress = progress;
+
+    // update timeline UI
+    el.timelineScrubber.style.background = `linear-gradient(to right, var(--brand) ${progress*100}%, transparent ${progress*100}%)`;
+    el.timelinePlayhead.style.left = `calc(${progress*100}% - 8px)`;
+
+    // move each root along path
+    const stepDuration = state.animationDuration / Math.max(1, Math.max(...state.animationTimelines.map(t => t.path.length)));
+    state.animationTimelines.forEach(tl => {
+      const o = getObject(tl.id);
+      if(!o || tl.path.length === 0) return;
+
+      const totalSteps = tl.path.length;
+      const t = elapsed / (stepDuration * totalSteps);
+      const scaled = clamp(t, 0, 1) * totalSteps;
+
+      const idx = Math.min(totalSteps - 1, Math.floor(scaled));
+      const segT = scaled - idx;
+
+      // ease in-out
+      const ease = segT < 0.5 ? 2*segT*segT : -1 + (4 - 2*segT)*segT;
+
+      const startPos = (idx === 0) ? state.animationInitialPositions.get(tl.id) : tl.path[idx-1];
+      const endPos = tl.path[idx];
+
+      if(startPos && endPos){
+        o.x = startPos.x + (endPos.x - startPos.x) * ease;
+        o.y = startPos.y + (endPos.y - startPos.y) * ease;
+      }
+    });
+
+    markDirty({render:true, lines:true, meas:true});
+
+    if(progress < 1){
+      requestAnimationFrame(animationLoop);
+    } else {
+      // restore
+      state.animationTimelines.forEach(tl => {
+        const o = getObject(tl.id);
+        const init = state.animationInitialPositions.get(tl.id);
+        if(o && init){
+          o.x = init.x; o.y = init.y;
         }
+      });
 
-        function restoreState(state) {
-            // Clear current scene
-            world.innerHTML = '<div id="grid-pattern"></div><svg id="svg-layer" class="path-layer"></svg><svg id="measurement-layer" class="path-layer"></svg>';
-            objects = [];
-            connections = [];
-            selectedId = null;
+      state.isAnimating = false;
+      state.animationProgress = 0;
+      el.playBtn.innerHTML = `<i class="fa-solid fa-play"></i> ACTION`;
 
-            // Restore objects
-            state.objects.forEach(o => {
-                const id = o.id;
-                const el = document.createElement('div');
-                el.id = id;
-                el.className = `scene-object group ${o.id.includes('ghost') || (o.nextPathId && objects.find(obj => obj.id === o.id)?.id) ? 'ghost' : ''}`;
-                el.style.left = o.left;
-                el.style.top = o.top;
-                el.dataset.rot = o.rot || 0;
-                el.dataset.type = o.type;
-                el.dataset.layer = o.layer || '1';
-                el.dataset.fov = o.fov || '60';
+      // reset timeline
+      el.timelineScrubber.style.background = `linear-gradient(to right, var(--brand) 0%, transparent 0%)`;
+      el.timelinePlayhead.style.left = "0";
+      markDirty({render:true, lines:true, meas:true});
+    }
+  }
 
-                let visual = '';
-                if (o.type === 'camera') {
-                    const fovAngle = parseInt(o.fov || 60);
-                    const spread = fovAngle * 2;
-                    const height = 300;
-                    visual = `<div class="fov-cone" style="border-left-width: ${spread}px; border-right-width: ${spread}px; border-top-width: ${height}px;"></div><div class="cam-body object-visual flex items-center justify-center"><div class="w-1.5 h-1.5 bg-black/50 rounded-full"></div></div>`;
-                } else if (o.type === 'actor') {
-                    visual = `<div class="w-10 h-10 rounded-full bg-rose-500 object-visual shadow-lg relative border-2 border-white/20" style="background-color: ${o.color || '#f43f5e'}"><div class="absolute top-0 left-1/2 -translate-x-1/2 w-2 h-2 bg-white rounded-full -mt-1"></div></div>`;
-                } else if (o.type === 'prop') {
-                    visual = `<div class="prop-visual object-visual bg-white/5 rounded-xl text-white/80" style="width:${o.width}; height:${o.height}; background-color: ${o.color || ''}"><i class="fa-solid fa-cube text-lg"></i></div>`;
-                }
+  function closeTimeline(){
+    el.timeline.classList.add("hidden");
+    el.timeline.classList.remove("flex");
+  }
 
-                el.innerHTML = `
-                    ${visual}
-                    <div class="text-[8px] font-bold mt-3 opacity-0 group-hover:opacity-100 bg-black/80 text-white px-2 py-1 rounded-md backdrop-blur-md label-tag whitespace-nowrap transition-opacity border border-white/10 pointer-events-none">${o.label || o.type}</div>
-                    <div class="control-handle rotate-handle" onpointerdown="startRotate(event, '${id}')"><i class="fa-solid fa-rotate"></i></div>
-                    <div class="control-handle resize-handle" onpointerdown="startResize(event, '${id}')"></div>
-                    <div class="layer-badge">${o.layer || '1'}</div>
-                `;
+  // ---------- Snapshot ----------
+  async function takeSnapshot(){
+    // temporarily remove transform for clean capture
+    const prev = el.world.style.transform;
+    el.world.style.transform = "none";
 
-                el.onpointerdown = (e) => startDrag(e, id);
-                applyRot(el, parseFloat(o.rot || 0));
-                world.appendChild(el);
+    const bg = getComputedStyle(document.body).getPropertyValue("--bg-color").trim() || "#0d0d0d";
+    const canvas = await html2canvas(el.world, { backgroundColor: bg });
+    const a = document.createElement("a");
+    a.download = `${state.sceneName || "Scene"}_Plan.png`;
+    a.href = canvas.toDataURL("image/png");
+    a.click();
 
-                objects.push({ id, type: o.type, targetId: o.targetId, nextPathId: o.nextPathId, layer: o.layer || '1' });
-            });
+    el.world.style.transform = prev;
+  }
 
-            // Restore connections
-            state.connections.forEach(conn => {
-                const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-                line.setAttribute('stroke', '#ffa300');
-                line.setAttribute('stroke-dasharray', '4,4');
-                line.setAttribute('opacity', '0.6');
-                line.setAttribute('stroke-width', '1.5');
-                svgLayer.appendChild(line);
-                connections.push({ from: conn.from, to: conn.to, line });
-                updatePathLines(conn.from);
-            });
+  // ---------- Storyboard: True POV Renderer ----------
+  function cameraPOVRenderToCanvas(camObj, canvas, opts = {}){
+    const ctx = canvas.getContext("2d");
+    const W = canvas.width;
+    const H = canvas.height;
 
-            applyLayerVisibility();
+    // base look
+    // sky / haze
+    const sky = ctx.createLinearGradient(0,0,0,H);
+    sky.addColorStop(0, "rgba(255,255,255,0.07)");
+    sky.addColorStop(0.35, "rgba(255,255,255,0.03)");
+    sky.addColorStop(1, "rgba(0,0,0,0.35)");
+    ctx.fillStyle = sky;
+    ctx.fillRect(0,0,W,H);
+
+    // subtle vignette
+    const v = ctx.createRadialGradient(W/2, H/2, Math.min(W,H)*0.15, W/2, H/2, Math.min(W,H)*0.75);
+    v.addColorStop(0, "rgba(0,0,0,0)");
+    v.addColorStop(1, "rgba(0,0,0,0.55)");
+    ctx.fillStyle = v;
+    ctx.fillRect(0,0,W,H);
+
+    const fov = clamp(camObj.fov ?? 60, 20, 120) * Math.PI/180;
+    const halfFov = fov/2;
+    const {fx, fy} = forwardVector(camObj.rot ?? 0);
+
+    // choose view distance
+    const objects = state.objects
+      .filter(o => o.id !== camObj.id)
+      .filter(o => state.layerVisibility[o.layer])
+      .filter(o => !o.isGhost);
+
+    // compute camera-space for objects
+    const visible = [];
+    let maxForward = 600; // default
+    objects.forEach(o => {
+      const dx = o.x - camObj.x;
+      const dy = o.y - camObj.y;
+
+      // in camera coords:
+      const dot = fx*dx + fy*dy;                // forward distance
+      const cross = fx*dy - fy*dx;              // left/right
+      const angle = Math.atan2(cross, dot);     // signed angle from forward
+
+      if(dot <= 10) return; // behind camera or too close
+      if(Math.abs(angle) > halfFov) return;
+
+      maxForward = Math.max(maxForward, dot);
+
+      visible.push({ o, dot, angle });
+    });
+
+    // horizon and ground line (fake)
+    const horizonY = H * 0.38;
+    ctx.strokeStyle = "rgba(255,255,255,0.06)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(0, horizonY);
+    ctx.lineTo(W, horizonY);
+    ctx.stroke();
+
+    // rule-of-thirds guides
+    ctx.strokeStyle = "rgba(255,255,255,0.04)";
+    ctx.beginPath();
+    ctx.moveTo(W/3, 0); ctx.lineTo(W/3, H);
+    ctx.moveTo(2*W/3, 0); ctx.lineTo(2*W/3, H);
+    ctx.moveTo(0, H/3); ctx.lineTo(W, H/3);
+    ctx.moveTo(0, 2*H/3); ctx.lineTo(W, 2*H/3);
+    ctx.stroke();
+
+    // Sort far -> near (painters algorithm)
+    visible.sort((a,b) => b.dot - a.dot);
+
+    // project and draw
+    const focal = 520; // tuning constant
+    const baseActor = 46;
+    const baseProp = 56;
+
+    function projX(angle){
+      return (angle / halfFov) * (W/2) + (W/2);
+    }
+    function projY(forward){
+      // far -> near
+      const t = clamp(forward / maxForward, 0, 1);
+      // far objects near horizon, near objects lower
+      return horizonY + (H*0.56) * Math.pow(1 - t, 0.72);
+    }
+    function size(forward){
+      // simple perspective
+      const s = focal / (forward + focal);
+      return clamp(s, 0.10, 0.95);
+    }
+
+    visible.forEach(v => {
+      const { o, dot, angle } = v;
+
+      const x = projX(angle);
+      const y = projY(dot);
+      const s = size(dot);
+
+      // color fallback
+      const col = (o.color && o.color.trim()) ? o.color : (o.type === "camera" ? "#ffa300" : "#ffffff");
+
+      ctx.save();
+      ctx.translate(x, y);
+
+      // shadow on ground
+      ctx.fillStyle = "rgba(0,0,0,0.25)";
+      ctx.beginPath();
+      ctx.ellipse(0, 10*s, 26*s, 10*s, 0, 0, Math.PI*2);
+      ctx.fill();
+
+      if(o.type === "actor"){
+        const r = baseActor * s * 0.55;
+        // body
+        ctx.fillStyle = col;
+        ctx.beginPath();
+        ctx.arc(0, 0, r, 0, Math.PI*2);
+        ctx.fill();
+
+        // specular dot
+        ctx.fillStyle = "rgba(255,255,255,0.25)";
+        ctx.beginPath();
+        ctx.arc(-r*0.25, -r*0.25, r*0.18, 0, Math.PI*2);
+        ctx.fill();
+
+      } else if(o.type === "prop"){
+        const w = (Math.max(20, o.w || 40) * s) * 1.1;
+        const h = (Math.max(20, o.h || 25) * s) * 1.1;
+        ctx.fillStyle = "rgba(255,255,255,0.10)";
+        ctx.strokeStyle = col || "rgba(255,255,255,0.22)";
+        ctx.lineWidth = 2;
+        roundRect(ctx, -w/2, -h/2, w, h, 10*s);
+        ctx.fill();
+        ctx.stroke();
+      } else {
+        // camera or other
+        ctx.strokeStyle = col;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(0, 0, 18*s, 0, Math.PI*2);
+        ctx.stroke();
+      }
+
+      // label
+      const label = o.label || o.type;
+      ctx.font = `${Math.max(11, 14*s)}px ui-sans-serif, system-ui, -apple-system`;
+      ctx.textAlign = "center";
+      ctx.fillStyle = "rgba(255,255,255,0.85)";
+      ctx.fillText(label, 0, 32*s);
+
+      ctx.restore();
+    });
+
+    // frame UI overlay
+    ctx.fillStyle = "rgba(0,0,0,0.35)";
+    ctx.fillRect(0, 0, W, 28);
+    ctx.fillStyle = "rgba(255,255,255,0.85)";
+    ctx.font = "12px ui-sans-serif, system-ui, -apple-system";
+    ctx.textAlign = "left";
+    ctx.fillText(`CAM: ${camObj.label}   FOV: ${Math.round((camObj.fov ?? 60))}°`, 10, 18);
+
+    // safe-area corners
+    ctx.strokeStyle = "rgba(255,163,0,0.35)";
+    ctx.lineWidth = 2;
+    drawCorners(ctx, W, H);
+  }
+
+  function roundRect(ctx, x, y, w, h, r){
+    const rr = Math.min(r, w/2, h/2);
+    ctx.beginPath();
+    ctx.moveTo(x+rr, y);
+    ctx.arcTo(x+w, y, x+w, y+h, rr);
+    ctx.arcTo(x+w, y+h, x, y+h, rr);
+    ctx.arcTo(x, y+h, x, y, rr);
+    ctx.arcTo(x, y, x+w, y, rr);
+    ctx.closePath();
+  }
+
+  function drawCorners(ctx, W, H){
+    const m = 10, len = 18;
+    ctx.beginPath();
+    // TL
+    ctx.moveTo(m, m+len); ctx.lineTo(m, m); ctx.lineTo(m+len, m);
+    // TR
+    ctx.moveTo(W-m-len, m); ctx.lineTo(W-m, m); ctx.lineTo(W-m, m+len);
+    // BL
+    ctx.moveTo(m, H-m-len); ctx.lineTo(m, H-m); ctx.lineTo(m+len, H-m);
+    // BR
+    ctx.moveTo(W-m-len, H-m); ctx.lineTo(W-m, H-m); ctx.lineTo(W-m, H-m-len);
+    ctx.stroke();
+  }
+
+  // ---------- Storyboard UI ----------
+  const storyboardCache = new Map(); // camId -> { canvas, blob }
+
+  function exportStoryboard(){
+    el.storyboardModal.classList.remove("hidden");
+    el.storyboardModal.classList.add("flex");
+
+    const cams = state.objects.filter(o => o.type === "camera" && !o.isGhost);
+    if(cams.length === 0){
+      el.storyboardGrid.innerHTML = `<div class="text-center text-xs text-red-300 py-10">Nessuna camera trovata nella scena.</div>`;
+      return;
+    }
+
+    storyboardCache.clear();
+
+    el.storyboardGrid.className = "p-6 overflow-y-auto grid grid-cols-1 md:grid-cols-2 gap-4";
+    el.storyboardGrid.innerHTML = "";
+
+    cams.forEach((cam, idx) => {
+      const card = document.createElement("div");
+      card.className = "storyboard-frame p-3 flex flex-col gap-2";
+
+      const title = document.createElement("div");
+      title.className = "flex items-center justify-between text-xs";
+      title.innerHTML = `
+        <div class="text-brand font-bold"><i class="fa-solid fa-video mr-2"></i>${cam.label}</div>
+        <div class="text-[10px] opacity-60">Frame ${idx+1}</div>
+      `;
+
+      const canvas = document.createElement("canvas");
+      canvas.className = "pov-canvas";
+      canvas.width = 960;
+      canvas.height = 540;
+
+      const actions = document.createElement("div");
+      actions.className = "flex gap-2 justify-end pt-1";
+      actions.innerHTML = `
+        <button class="px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-[10px] font-bold" data-dl="${cam.id}">
+          <i class="fa-solid fa-download mr-2"></i>PNG
+        </button>
+        <button class="px-3 py-2 rounded-xl bg-brand/10 border border-brand/20 hover:bg-brand hover:text-black text-brand text-[10px] font-bold transition" data-jump="${cam.id}">
+          <i class="fa-solid fa-location-crosshairs mr-2"></i>FOCUS
+        </button>
+      `;
+
+      card.appendChild(title);
+      card.appendChild(canvas);
+      card.appendChild(actions);
+      el.storyboardGrid.appendChild(card);
+
+      // render POV
+      cameraPOVRenderToCanvas(cam, canvas);
+
+      // store
+      storyboardCache.set(cam.id, { cam, canvas, blob: null });
+
+      // download single
+      actions.querySelector(`[data-dl="${cam.id}"]`).addEventListener("click", async () => {
+        const b = await canvasToBlob(canvas);
+        const filename = `${safeFile(cam.label)}_POV.png`;
+        saveAs(b, filename);
+      });
+
+      // focus on camera in plan view
+      actions.querySelector(`[data-jump="${cam.id}"]`).addEventListener("click", () => {
+        focusOnObject(cam.id);
+      });
+    });
+  }
+
+  function safeFile(name){
+    return (name || "Camera").replace(/[^\w\- ]+/g, "").trim().replace(/\s+/g, "_").slice(0, 50) || "Camera";
+  }
+
+  function canvasToBlob(canvas){
+    return new Promise((res) => canvas.toBlob((b) => res(b), "image/png"));
+  }
+
+  async function downloadStoryboardZip(){
+    const cams = [...storyboardCache.values()];
+    if(cams.length === 0) return;
+
+    const zip = new JSZip();
+    const folder = zip.folder(safeFile(state.sceneName || "Scene"));
+
+    for(const item of cams){
+      const blob = await canvasToBlob(item.canvas);
+      folder.file(`${safeFile(item.cam.label)}_POV.png`, blob);
+    }
+
+    const out = await zip.generateAsync({ type: "blob" });
+    saveAs(out, `${safeFile(state.sceneName || "Scene")}_Storyboard.zip`);
+  }
+
+  function closeStoryboard(){
+    el.storyboardModal.classList.add("hidden");
+    el.storyboardModal.classList.remove("flex");
+  }
+
+  function focusOnObject(id){
+    const o = getObject(id);
+    if(!o) return;
+    // center object on screen
+    const target = worldToScreen(o.x, o.y);
+    const dx = (window.innerWidth/2) - target.x;
+    const dy = (window.innerHeight/2) - target.y;
+    state.view.panX += dx;
+    state.view.panY += dy;
+    updateTransform();
+    selectObject(id);
+    markDirty({lines:true, meas:true});
+  }
+
+  // ---------- Global UI actions (delegation) ----------
+  function wireActions(){
+    document.addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-action]");
+      if(!btn) return;
+      const a = btn.getAttribute("data-action");
+
+      const actions = {
+        toggleSceneMenu: openSceneMenu,
+        createNewScene,
+        undo,
+        redo,
+        toggleMeasurements,
+        toggleLayers,
+        exportStoryboard,
+        playScene,
+        takeSnapshot,
+        toggleTheme,
+        openInspector,
+        closeInspector,
+        addGhostPath,
+        deleteSelected,
+        openPropPicker,
+        closeTimeline,
+        closeStoryboard,
+        downloadStoryboardZip,
+        toggleSnap,
+        activateTargetMode,
+      };
+
+      if(actions[a]) actions[a]();
+    });
+
+    // scene menu backdrop click
+    el.sceneMenu.addEventListener("click", (ev) => {
+      if(ev.target === el.sceneMenu) closeSceneMenu();
+    });
+    el.storyboardModal.addEventListener("click", (ev) => {
+      if(ev.target === el.storyboardModal) closeStoryboard();
+    });
+    el.propPicker.addEventListener("click", (ev) => {
+      if(ev.target === el.propPicker) closePropPicker();
+    });
+
+    // toolbar add
+    document.querySelector('[data-action="addActor"]')?.addEventListener("click", () => addObject("actor", { label:"Actor", color:"#f43f5e" }));
+    document.querySelector('[data-action="addCamera"]')?.addEventListener("click", () => addObject("camera", { label:"CAM", fov:60 }));
+
+    // prop categories
+    document.querySelectorAll("[data-prop-cat]").forEach(b => {
+      b.addEventListener("click", () => {
+        filterProps(b.getAttribute("data-prop-cat"));
+      });
+    });
+
+    // inspector inputs
+    el.inspName.addEventListener("input", () => {
+      updateLabel(el.inspName.value);
+    });
+    el.inspName.addEventListener("change", () => saveState());
+
+    el.inspLayer.addEventListener("change", () => {
+      updateLayer(el.inspLayer.value);
+    });
+
+    el.fovSlider.addEventListener("input", () => {
+      if(!state.selectedId) return;
+      el.fovValue.textContent = el.fovSlider.value;
+      const o = getObject(state.selectedId);
+      if(o && o.type === "camera"){
+        o.fov = clamp(parseInt(el.fovSlider.value,10) || 60, 20, 120);
+        markDirty({render:true});
+      }
+    });
+    el.fovSlider.addEventListener("change", () => saveState());
+
+    el.colorPicker.addEventListener("input", () => {
+      setColor(el.colorPicker.value);
+    });
+    el.colorPicker.addEventListener("change", () => saveState());
+
+    document.querySelectorAll("[data-color]").forEach(b => {
+      b.addEventListener("click", () => {
+        setColor(b.getAttribute("data-color"));
+        saveState();
+      });
+    });
+
+    // scene save
+    document.querySelector('[data-action="saveScene"]')?.addEventListener("click", saveScene);
+
+    // timeline scrub: click-to-seek (solo UI, non riscrive animazione completa)
+    el.timelineScrubber.addEventListener("pointerdown", (ev) => {
+      const rect = el.timelineScrubber.getBoundingClientRect();
+      const x = clamp((ev.clientX - rect.left) / rect.width, 0, 1);
+      el.timelineScrubber.style.background = `linear-gradient(to right, var(--brand) ${x*100}%, transparent ${x*100}%)`;
+      el.timelinePlayhead.style.left = `calc(${x*100}% - 8px)`;
+    });
+  }
+
+  // ---------- Keyboard shortcuts ----------
+  function wireKeyboard(){
+    document.addEventListener("keydown", (e) => {
+      const isTyping = e.target && (e.target.matches("input, textarea") || e.target.isContentEditable);
+
+      if((e.ctrlKey || e.metaKey) && !isTyping){
+        if(e.key.toLowerCase() === "z" && !e.shiftKey){
+          e.preventDefault(); undo();
+        } else if((e.key.toLowerCase() === "z" && e.shiftKey) || e.key.toLowerCase() === "y"){
+          e.preventDefault(); redo();
         }
+      }
 
-        // --- NAVIGATION ---
-        viewport.onpointerdown = (e) => {
-            if (e.target.closest('.scene-object') || e.target.closest('.control-handle')) return;
-            pointers[e.pointerId] = e;
-            viewport.setPointerCapture(e.pointerId);
-            deselect();
-            if (Object.keys(pointers).length === 2) {
-                const [p1, p2] = Object.values(pointers);
-                initialDist = Math.hypot(p2.clientX - p1.clientX, p2.clientY - p1.clientY);
-                initialScale = scale;
-            }
-        };
-
-        viewport.onpointermove = (e) => {
-            if (!pointers[e.pointerId]) return;
-            pointers[e.pointerId] = e;
-            const pts = Object.values(pointers);
-            if (pts.length === 2) {
-                const dist = Math.hypot(pts[1].clientX - pts[0].clientX, pts[1].clientY - pts[0].clientY);
-                scale = Math.min(Math.max(0.1, initialScale * (dist / initialDist)), 5);
-            } else if (pts.length === 1) {
-                panX += e.movementX;
-                panY += e.movementY;
-            }
-            updateTransform();
-        };
-
-        viewport.onpointerup = (e) => delete pointers[e.pointerId];
-
-        function updateTransform() {
-            world.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
-            document.getElementById('grid-pattern').style.backgroundPosition = `${-panX}px ${-panY}px`;
+      if((e.key === "Delete" || e.key === "Backspace") && !isTyping){
+        if(state.selectedId){
+          e.preventDefault();
+          deleteSelected();
         }
+      }
 
-        // --- OBJECT FACTORY ---
-        function addObject(type, propData=null, isGhost=false, parentId=null) {
-            const id = 'obj_' + Date.now() + Math.random().toString(16).slice(2);
-            const el = document.createElement('div');
-            el.id = id;
-            el.className = `scene-object group ${isGhost ? 'ghost' : ''}`;
-            
-            if (!parentId) {
-                el.style.left = (window.innerWidth/2 - panX)/scale + 'px';
-                el.style.top = (window.innerHeight/2 - panY)/scale + 'px';
-            }
+      if(e.key === "Escape"){
+        if(!el.storyboardModal.classList.contains("hidden")) closeStoryboard();
+        if(!el.sceneMenu.classList.contains("hidden")) closeSceneMenu();
+        if(!el.propPicker.classList.contains("hidden")) closePropPicker();
+        closeInspector();
+        document.body.style.cursor = "default";
+        state.targetMode = false;
+      }
+    });
+  }
 
-            el.dataset.type = type;
-            el.dataset.rot = 0;
-            el.dataset.layer = '1';
-            el.dataset.fov = '60';
-            
-            let visual = '';
-            let label = type === 'camera' ? 'CAM' : (type === 'actor' ? 'Actor' : propData?.name || 'Prop');
-            
-            if (type === 'camera') {
-                visual = `<div class="fov-cone"></div><div class="cam-body object-visual flex items-center justify-center"><div class="w-1.5 h-1.5 bg-black/50 rounded-full"></div></div>`;
-            } else if (type === 'actor') {
-                visual = `<div class="w-10 h-10 rounded-full bg-rose-500 object-visual shadow-lg relative border-2 border-white/20"><div class="absolute top-0 left-1/2 -translate-x-1/2 w-2 h-2 bg-white rounded-full -mt-1"></div></div>`;
-            } else if (type === 'prop') {
-                visual = `<div class="prop-visual object-visual bg-white/5 rounded-xl text-white/80" style="width:${propData.w}px; height:${propData.h}px"><i class="fa-solid ${propData.icon} text-lg"></i></div>`;
-            }
+  // ---------- Boot ----------
+  function init(){
+    centerView();
+    updateTransform();
 
-            el.innerHTML = `
-                ${visual}
-                <div class="text-[8px] font-bold mt-3 opacity-0 group-hover:opacity-100 bg-black/80 text-white px-2 py-1 rounded-md backdrop-blur-md label-tag whitespace-nowrap transition-opacity border border-white/10 pointer-events-none">${label}</div>
-                <div class="control-handle rotate-handle" onpointerdown="startRotate(event, '${id}')"><i class="fa-solid fa-rotate"></i></div>
-                <div class="control-handle resize-handle" onpointerdown="startResize(event, '${id}')"></div>
-                <div class="layer-badge">1</div>
-            `;
+    // init props
+    filterProps("light");
 
-            el.onpointerdown = (e) => startDrag(e, id);
-            world.appendChild(el);
-            
-            objects.push({ id, type, targetId: null, nextPathId: null, layer: '1' });
-            
-            selectObject(id);
-            document.getElementById('prop-picker').classList.add('hidden');
-            
-            saveState();
-            return id;
-        }
+    // viewport events
+    el.viewport.addEventListener("pointerdown", onViewportPointerDown);
+    el.viewport.addEventListener("pointermove", onViewportPointerMove);
+    el.viewport.addEventListener("pointerup", onViewportPointerUp);
+    el.viewport.addEventListener("pointercancel", onViewportPointerCancel);
 
-        // --- INTERACTION ---
-        function startDrag(e, id) {
-            if (e.target.closest('.control-handle')) return;
-            e.stopPropagation();
-            
-            if (targetMode) {
-                const targetObj = objects.find(o => o.id === id);
-                if (targetObj.type === 'actor') {
-                    const cam = objects.find(o => o.id === selectedId);
-                    cam.targetId = id;
-                    alert("Tracking Locked!");
-                    targetMode = false;
-                    document.body.style.cursor = 'default';
-                    selectObject(cam.id);
-                    updateTracking();
-                    saveState();
-                    return;
-                }
-            }
+    // window resize keeps transform okay
+    window.addEventListener("resize", () => {
+      // non resetto la view; solo ridisegno
+      markDirty({lines:true, meas:true});
+    });
 
-            selectObject(id);
-            const el = document.getElementById(id);
-            const startX = e.clientX, startY = e.clientY;
-            const startL = parseFloat(el.style.left), startT = parseFloat(el.style.top);
-            
-            el.setPointerCapture(e.pointerId);
-            el.onpointermove = (ev) => {
-                el.style.left = (startL + (ev.clientX - startX)/scale) + 'px';
-                el.style.top = (startT + (ev.clientY - startY)/scale) + 'px';
-                updatePathLines(id);
-                updateTracking();
-                updateMeasurements();
-            };
-            el.onpointerup = () => { 
-                el.onpointermove = null; 
-                el.releasePointerCapture(e.pointerId);
-                saveState();
-            };
-        }
+    wireActions();
+    wireKeyboard();
 
-        function startRotate(e, id) {
-            e.stopPropagation();
-            const el = document.getElementById(id);
-            const rect = el.getBoundingClientRect();
-            const cx = rect.left + rect.width/2, cy = rect.top + rect.height/2;
-            
-            el.setPointerCapture(e.pointerId);
-            el.onpointermove = (ev) => {
-                const ang = Math.atan2(ev.clientY - cy, ev.clientX - cx) * (180/Math.PI) + 90;
-                el.dataset.rot = ang;
-                applyRot(el, ang);
-            };
-            el.onpointerup = () => { 
-                el.onpointermove = null; 
-                el.releasePointerCapture(e.pointerId);
-                saveState();
-            };
-        }
+    // click outside: close scene menu backdrop
+    el.sceneMenuBackdrop.addEventListener("click", closeSceneMenu);
 
-        function startResize(e, id) {
-            e.stopPropagation();
-            const el = document.getElementById(id);
-            const visual = el.querySelector('.object-visual');
-            const startX = e.clientX, startY = e.clientY;
-            const startW = visual.offsetWidth, startH = visual.offsetHeight;
-            
-            el.setPointerCapture(e.pointerId);
-            el.onpointermove = (ev) => {
-                const deltaX = (ev.clientX - startX) / scale;
-                const deltaY = (ev.clientY - startY) / scale;
-                const newW = Math.max(20, startW + deltaX);
-                const newH = Math.max(20, startH + deltaY);
-                visual.style.width = newW + 'px';
-                visual.style.height = newH + 'px';
-            };
-            el.onpointerup = () => { 
-                el.onpointermove = null; 
-                el.releasePointerCapture(e.pointerId);
-                saveState();
-            };
-        }
+    // start history
+    saveState();
+    loadSceneList();
+    updateTopButtonsState();
 
-        function applyRot(el, deg) {
-            el.style.transform = `translate(-50%, -50%) rotate(${deg}deg)`;
-            const label = el.querySelector('.label-tag');
-            if(label) label.style.transform = `rotate(-${deg}deg)`;
-        }
+    requestTick();
+  }
 
-        function updateTracking() {
-            objects.forEach(obj => {
-                if (obj.type === 'camera' && obj.targetId) {
-                    const camEl = document.getElementById(obj.id);
-                    const tEl = document.getElementById(obj.targetId);
-                    if (camEl && tEl) {
-                        const cx = parseFloat(camEl.style.left), cy = parseFloat(camEl.style.top);
-                        const tx = parseFloat(tEl.style.left), ty = parseFloat(tEl.style.top);
-                        const ang = Math.atan2(ty - cy, tx - cx) * (180/Math.PI) + 90;
-                        camEl.dataset.rot = ang;
-                        applyRot(camEl, ang);
-                    }
-                }
-            });
-        }
+  init();
 
-        function activateTargetMode() {
-            targetMode = true;
-            document.body.style.cursor = 'crosshair';
-            closeInspector();
-        }
-
-        function updateFOV(value) {
-            if (!selectedId) return;
-            const el = document.getElementById(selectedId);
-            el.dataset.fov = value;
-            document.getElementById('fov-value').innerText = value;
-            
-            const cone = el.querySelector('.fov-cone');
-            if (cone) {
-                const spread = parseInt(value) * 2;
-                cone.style.borderLeftWidth = spread + 'px';
-                cone.style.borderRightWidth = spread + 'px';
-            }
-            saveState();
-        }
-
-        // --- GHOST PATH SYSTEM ---
-        function addGhostPath() {
-            if (!selectedId) return;
-            const parentObj = objects.find(o => o.id === selectedId);
-            const parentEl = document.getElementById(selectedId);
-            
-            const ghostId = addObject(parentObj.type, null, true, selectedId);
-            const ghostEl = document.getElementById(ghostId);
-            
-            ghostEl.style.left = (parseFloat(parentEl.style.left) + 60) + 'px';
-            ghostEl.style.top = parseFloat(parentEl.style.top) + 'px';
-            ghostEl.querySelector('.label-tag').innerText = "Step";
-            ghostEl.classList.add('ghost');
-            
-            // Update layer and visual to match parent
-            const parentLayer = parentEl.dataset.layer || '1';
-            ghostEl.dataset.layer = parentLayer;
-            ghostEl.querySelector('.layer-badge').innerText = parentLayer;
-            
-            parentObj.nextPathId = ghostId;
-            
-            const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-            line.setAttribute('stroke', '#ffa300');
-            line.setAttribute('stroke-dasharray', '4,4');
-            line.setAttribute('opacity', '0.6');
-            line.setAttribute('stroke-width', '1.5');
-            svgLayer.appendChild(line);
-            
-            connections.push({ from: selectedId, to: ghostId, line });
-            updatePathLines(selectedId);
-            selectObject(ghostId);
-            saveState();
-        }
-
-        function updatePathLines(movedId) {
-            connections.forEach(conn => {
-                if (conn.from === movedId || conn.to === movedId) {
-                    const e1 = document.getElementById(conn.from);
-                    const e2 = document.getElementById(conn.to);
-                    if (e1 && e2) {
-                        const off = 5000;
-                        conn.line.setAttribute('x1', parseFloat(e1.style.left) + off);
-                        conn.line.setAttribute('y1', parseFloat(e1.style.top) + off);
-                        conn.line.setAttribute('x2', parseFloat(e2.style.left) + off);
-                        conn.line.setAttribute('y2', parseFloat(e2.style.top) + off);
-                    }
-                }
-            });
-        }
-
-        // --- ANIMATION PLAYBACK ---
-        let isAnimating = false;
-        let animationProgress = 0;
-        
-        function playScene() {
-            if (isAnimating) return;
-            
-            // Show timeline
-            document.getElementById('timeline-container').classList.remove('hidden');
-            document.getElementById('timeline-container').classList.add('flex');
-            
-            isAnimating = true;
-            const btn = document.getElementById('play-btn');
-            btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> RUNNING';
-            
-            const roots = objects.filter(o => !document.getElementById(o.id).classList.contains('ghost') && o.nextPathId);
-            const initialStates = roots.map(o => ({ id: o.id, x: parseFloat(document.getElementById(o.id).style.left), y: parseFloat(document.getElementById(o.id).style.top) }));
-            
-            const timelines = roots.map(root => {
-                const path = [];
-                let current = root;
-                while(current.nextPathId) {
-                    const nextObj = objects.find(o => o.id === current.nextPathId);
-                    if(!nextObj) break;
-                    const el = document.getElementById(nextObj.id);
-                    path.push({ x: parseFloat(el.style.left), y: parseFloat(el.style.top) });
-                    current = nextObj;
-                }
-                return { id: root.id, path };
-            });
-
-            const stepDuration = 1500;
-            const totalDuration = Math.max(...timelines.map(t => t.path.length)) * stepDuration;
-            const startTime = performance.now();
-
-            // Update timeline duration display
-            const mins = Math.floor(totalDuration / 60000);
-            const secs = Math.floor((totalDuration % 60000) / 1000);
-            document.getElementById('timeline-duration').innerText = `${mins}:${secs.toString().padStart(2, '0')}`;
-
-            function loop(now) {
-                const elapsed = now - startTime;
-                animationProgress = Math.min(elapsed / totalDuration, 1);
-                
-                // Update timeline scrubber
-                const scrubber = document.getElementById('timeline-scrubber');
-                const playhead = document.getElementById('timeline-playhead');
-                scrubber.style.background = `linear-gradient(to right, var(--brand) ${animationProgress * 100}%, transparent ${animationProgress * 100}%)`;
-                playhead.style.left = `calc(${animationProgress * 100}% - 8px)`;
-                
-                if (elapsed < totalDuration) {
-                    timelines.forEach(tl => {
-                        const el = document.getElementById(tl.id);
-                        const totalSteps = tl.path.length;
-                        const currentStepIndex = Math.floor(elapsed / stepDuration);
-                        
-                        if (currentStepIndex < totalSteps) {
-                            const segmentProgress = (elapsed % stepDuration) / stepDuration;
-                            const ease = segmentProgress < .5 ? 2 * segmentProgress * segmentProgress : -1 + (4 - 2 * segmentProgress) * segmentProgress;
-                            
-                            const startX = currentStepIndex === 0 ? initialStates.find(s=>s.id===tl.id).x : tl.path[currentStepIndex-1].x;
-                            const startY = currentStepIndex === 0 ? initialStates.find(s=>s.id===tl.id).y : tl.path[currentStepIndex-1].y;
-                            const endX = tl.path[currentStepIndex].x;
-                            const endY = tl.path[currentStepIndex].y;
-                            
-                            el.style.left = (startX + (endX - startX) * ease) + 'px';
-                            el.style.top = (startY + (endY - startY) * ease) + 'px';
-                        }
-                    });
-                    
-                    updateTracking();
-                    requestAnimationFrame(loop);
-                } else {
-                    isAnimating = false;
-                    btn.innerHTML = '<i class="fa-solid fa-play"></i> ACTION';
-                    setTimeout(() => {
-                        initialStates.forEach(s => {
-                            const el = document.getElementById(s.id);
-                            el.style.left = s.x + 'px';
-                            el.style.top = s.y + 'px';
-                        });
-                        updateTracking();
-                        animationProgress = 0;
-                        document.getElementById('timeline-scrubber').style.background = 'linear-gradient(to right, var(--brand) 0%, transparent 0%)';
-                        document.getElementById('timeline-playhead').style.left = '0';
-                    }, 1000);
-                }
-            }
-            requestAnimationFrame(loop);
-        }
-
-        function closeTimeline() {
-            document.getElementById('timeline-container').classList.add('hidden');
-            document.getElementById('timeline-container').classList.remove('flex');
-        }
-
-        function startScrub(e) {
-            if (isAnimating) return;
-            // Scrubbing functionality can be enhanced here
-        }
-
-        // --- MEASUREMENTS ---
-        function toggleMeasurements() {
-            measurementsEnabled = !measurementsEnabled;
-            const btn = document.getElementById('measure-btn');
-            
-            if (measurementsEnabled) {
-                btn.classList.add('text-brand');
-                updateMeasurements();
-            } else {
-                btn.classList.remove('text-brand');
-                measurementLayer.innerHTML = '';
-            }
-        }
-
-        function updateMeasurements() {
-            if (!measurementsEnabled) return;
-            
-            measurementLayer.innerHTML = '';
-            
-            // Draw measurements between selected object and other objects
-            if (!selectedId) return;
-            
-            const selectedEl = document.getElementById(selectedId);
-            const sx = parseFloat(selectedEl.style.left);
-            const sy = parseFloat(selectedEl.style.top);
-            
-            objects.forEach(obj => {
-                if (obj.id === selectedId) return;
-                const el = document.getElementById(obj.id);
-                const x = parseFloat(el.style.left);
-                const y = parseFloat(el.style.top);
-                
-                const dist = Math.sqrt(Math.pow(x - sx, 2) + Math.pow(y - sy, 2));
-                const angle = Math.atan2(y - sy, x - sx) * (180 / Math.PI);
-                
-                // Draw line
-                const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-                line.setAttribute('class', 'measurement-line');
-                line.setAttribute('x1', sx + 5000);
-                line.setAttribute('y1', sy + 5000);
-                line.setAttribute('x2', x + 5000);
-                line.setAttribute('y2', y + 5000);
-                measurementLayer.appendChild(line);
-                
-                // Draw text
-                const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-                text.setAttribute('class', 'measurement-text');
-                text.setAttribute('x', (sx + x) / 2 + 5000);
-                text.setAttribute('y', (sy + y) / 2 + 5000 - 5);
-                text.setAttribute('text-anchor', 'middle');
-                text.textContent = `${Math.round(dist)}px / ${Math.round(angle)}°`;
-                measurementLayer.appendChild(text);
-            });
-        }
-
-        // --- LAYERS ---
-        function toggleLayers() {
-            const panel = document.getElementById('layers-panel');
-            const isHidden = panel.style.transform.includes('-150%');
-            panel.style.transform = isHidden ? 'translateY(-50%) translateX(0)' : 'translateY(-50%) translateX(-150%)';
-        }
-
-        function toggleLayerVisibility(layer) {
-            layerVisibility[layer] = !layerVisibility[layer];
-            const eye = document.getElementById(`layer-eye-${layer}`);
-            eye.className = layerVisibility[layer] ? 'fa-solid fa-eye text-xs opacity-60' : 'fa-solid fa-eye-slash text-xs opacity-60';
-            applyLayerVisibility();
-        }
-
-        function applyLayerVisibility() {
-            objects.forEach(obj => {
-                const el = document.getElementById(obj.id);
-                const layer = obj.layer || '1';
-                if (layerVisibility[layer]) {
-                    el.classList.remove('hidden-layer');
-                } else {
-                    el.classList.add('hidden-layer');
-                }
-            });
-        }
-
-        function updateLayer(layer) {
-            if (!selectedId) return;
-            const obj = objects.find(o => o.id === selectedId);
-            obj.layer = layer;
-            const el = document.getElementById(selectedId);
-            el.dataset.layer = layer;
-            el.querySelector('.layer-badge').innerText = layer;
-            applyLayerVisibility();
-            saveState();
-        }
-
-        // --- STORYBOARD EXPORT ---
-        function exportStoryboard() {
-            const modal = document.getElementById('storyboard-modal');
-            modal.classList.remove('hidden');
-            
-            const grid = document.getElementById('storyboard-grid');
-            grid.innerHTML = '<div class="text-center text-xs opacity-60 py-8">Generating storyboard frames...</div>';
-            
-            // Find all cameras
-            const cameras = objects.filter(o => o.type === 'camera');
-            
-            if (cameras.length === 0) {
-                grid.innerHTML = '<div class="text-center text-xs text-red-400 py-8">No cameras found in scene</div>';
-                return;
-            }
-
-            setTimeout(() => {
-                grid.innerHTML = '';
-                grid.className = 'p-6 overflow-y-auto grid grid-cols-2 gap-4';
-                
-                cameras.forEach((cam, index) => {
-                    const frame = document.createElement('div');
-                    frame.className = 'storyboard-frame bg-black/40 p-4 flex flex-col';
-                    
-                    const camEl = document.getElementById(cam.id);
-                    const label = camEl.querySelector('.label-tag').innerText;
-                    
-                    frame.innerHTML = `
-                        <div class="flex-1 flex items-center justify-center text-brand text-xs mb-2">
-                            <i class="fa-solid fa-video mr-2"></i>
-                            Camera View: ${label}
-                        </div>
-                        <div class="text-[8px] opacity-40 text-center">Frame ${index + 1}</div>
-                        <canvas id="storyboard-canvas-${index}" class="hidden"></canvas>
-                    `;
-                    
-                    grid.appendChild(frame);
-                    
-                    // Generate snapshot for this camera angle
-                    // This is a placeholder - full implementation would render from camera POV
-                    const canvas = document.getElementById(`storyboard-canvas-${index}`);
-                    const ctx = canvas.getContext('2d');
-                    canvas.width = 320;
-                    canvas.height = 180;
-                    ctx.fillStyle = '#0d0d0d';
-                    ctx.fillRect(0, 0, 320, 180);
-                    ctx.fillStyle = '#ffa300';
-                    ctx.font = '12px sans-serif';
-                    ctx.textAlign = 'center';
-                    ctx.fillText(`Camera: ${label}`, 160, 90);
-                });
-            }, 500);
-        }
-
-        function downloadStoryboard() {
-            alert('Storyboard download functionality ready! Frames would be exported as PNG sequence.');
-        }
-
-        // --- UI & UTILS ---
-        function selectObject(id) {
-            deselect();
-            selectedId = id;
-            document.getElementById(id).classList.add('selected');
-            document.getElementById('edit-bar').classList.remove('hidden');
-            document.getElementById('edit-bar').classList.add('flex');
-            
-            const obj = objects.find(o => o.id === id);
-            const el = document.getElementById(id);
-            document.getElementById('insp-name').value = el.querySelector('.label-tag').innerText;
-            document.getElementById('insp-layer').value = obj.layer || '1';
-            
-            if (obj.type === 'camera') {
-                document.getElementById('cam-controls').classList.remove('hidden');
-                document.getElementById('fov-slider').value = el.dataset.fov || '60';
-                document.getElementById('fov-value').innerText = el.dataset.fov || '60';
-                
-                if (obj.targetId) {
-                    document.getElementById('target-status').classList.remove('hidden');
-                    const t = document.getElementById(obj.targetId);
-                    document.getElementById('target-name').innerText = t ? t.querySelector('.label-tag').innerText : 'Unknown';
-                } else {
-                    document.getElementById('target-status').classList.add('hidden');
-                }
-            } else {
-                document.getElementById('cam-controls').classList.add('hidden');
-            }
-            
-            updateMeasurements();
-        }
-
-        function deselect() {
-            if(selectedId) {
-                document.getElementById(selectedId).classList.remove('selected');
-                measurementLayer.innerHTML = '';
-            }
-            selectedId = null;
-            document.getElementById('edit-bar').classList.add('hidden');
-            document.getElementById('edit-bar').classList.remove('flex');
-            closeInspector();
-        }
-
-        function openInspector() { 
-            document.getElementById('inspector').style.transform = 'translateY(-50%) translateX(0)'; 
-        }
-        
-        function closeInspector() { 
-            document.getElementById('inspector').style.transform = 'translateY(-50%) translateX(150%)'; 
-        }
-        
-        function updateLabel(val) { 
-            if(selectedId) {
-                document.getElementById(selectedId).querySelector('.label-tag').innerText = val;
-                saveState();
-            }
-        }
-        
-        function setColor(hex) {
-            if(!selectedId) return;
-            const el = document.getElementById(selectedId).querySelector('.object-visual');
-            el.style.backgroundColor = hex;
-            el.style.borderColor = hex;
-            el.style.color = (parseInt(hex.replace('#',''),16) > 0xffffff/1.5) ? '#000' : '#fff';
-            saveState();
-        }
-
-        function deleteSelected() {
-            if(!selectedId) return;
-            
-            // Check if this is a ghost in a chain - if so, reconnect the chain
-            const obj = objects.find(o => o.id === selectedId);
-            const parentObj = objects.find(o => o.nextPathId === selectedId);
-            
-            if (parentObj && obj.nextPathId) {
-                // Reconnect chain
-                parentObj.nextPathId = obj.nextPathId;
-                
-                // Update connection
-                connections = connections.filter(c => {
-                    if (c.from === selectedId || c.to === selectedId) {
-                        c.line.remove();
-                        return false;
-                    }
-                    return true;
-                });
-                
-                // Create new connection
-                const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-                line.setAttribute('stroke', '#ffa300');
-                line.setAttribute('stroke-dasharray', '4,4');
-                line.setAttribute('opacity', '0.6');
-                line.setAttribute('stroke-width', '1.5');
-                svgLayer.appendChild(line);
-                connections.push({ from: parentObj.id, to: obj.nextPathId, line });
-                updatePathLines(parentObj.id);
-            } else {
-                // Remove connections
-                connections = connections.filter(c => {
-                    if (c.from === selectedId || c.to === selectedId) {
-                        c.line.remove();
-                        return false;
-                    }
-                    return true;
-                });
-                
-                // Update parent reference
-                if (parentObj) {
-                    parentObj.nextPathId = null;
-                }
-            }
-            
-            const el = document.getElementById(selectedId);
-            el.remove();
-            objects = objects.filter(o => o.id !== selectedId);
-            deselect();
-            saveState();
-        }
-
-        function takeSnapshot() {
-            const t = world.style.transform;
-            world.style.transform = 'none';
-            html2canvas(document.getElementById('world'), { backgroundColor: '#0d0d0d' }).then(c => {
-                const a = document.createElement('a');
-                a.download = 'CineFlow_Shot.png'; 
-                a.href = c.toDataURL(); 
-                a.click();
-                world.style.transform = t;
-            });
-        }
-
-        // --- SCENE MANAGER ---
-        function saveScene() {
-            const name = document.getElementById('scene-name-input').value || 'Scene ' + Date.now();
-            const data = {
-                name,
-                objects: objects.map(o => {
-                    const el = document.getElementById(o.id);
-                    return { 
-                        ...o, 
-                        left: el.style.left, 
-                        top: el.style.top, 
-                        rot: el.dataset.rot,
-                        label: el.querySelector('.label-tag').innerText, 
-                        color: el.querySelector('.object-visual').style.backgroundColor,
-                        width: el.querySelector('.object-visual').style.width || '',
-                        height: el.querySelector('.object-visual').style.height || '',
-                        fov: el.dataset.fov || '60'
-                    };
-                }),
-                connections: connections.map(c => ({from:c.from, to:c.to}))
-            };
-            localStorage.setItem('cf_v7_' + name, JSON.stringify(data));
-            document.getElementById('scene-name-display').innerText = name;
-            loadSceneList();
-        }
-
-        function loadSceneList() {
-            const list = document.getElementById('saved-list');
-            list.innerHTML = '';
-            for (let i = 0; i < localStorage.length; i++) {
-                const key = localStorage.key(i);
-                if (key.startsWith('cf_v7_')) {
-                    const name = key.replace('cf_v7_', '');
-                    const div = document.createElement('div');
-                    div.className = "flex justify-between items-center bg-white/5 p-3 rounded-xl text-[10px]";
-                    div.innerHTML = `<span class="font-bold text-white/70">${name}</span><div class="flex gap-3"><button onclick="loadScene('${name}')" class="text-brand hover:text-white">OPEN</button><button onclick="deleteScene('${name}')" class="text-red-400 hover:text-white"><i class="fa-solid fa-trash"></i></button></div>`;
-                    list.appendChild(div);
-                }
-            }
-        }
-
-        function loadScene(name) {
-            const data = JSON.parse(localStorage.getItem('cf_v7_' + name));
-            if (!data) return;
-            
-            restoreState(data);
-            
-            document.getElementById('scene-name-display').innerText = data.name;
-            document.getElementById('scene-name-input').value = data.name;
-            document.getElementById('scene-menu').classList.add('hidden');
-        }
-        
-        function createNewScene() {
-            world.innerHTML = '<div id="grid-pattern"></div><svg id="svg-layer" class="path-layer"></svg><svg id="measurement-layer" class="path-layer"></svg>';
-            objects = []; 
-            connections = []; 
-            selectedId = null;
-            history = [];
-            historyIndex = -1;
-            document.getElementById('scene-name-display').innerText = "Untitled";
-            document.getElementById('scene-menu').classList.add('hidden');
-            saveState();
-        }
-        
-        function deleteScene(name) { 
-            localStorage.removeItem('cf_v7_'+name); 
-            loadSceneList(); 
-        }
-        
-        function toggleSceneMenu() { 
-            document.getElementById('scene-menu').classList.remove('hidden'); 
-            loadSceneList(); 
-        }
-        
-        function toggleTheme() { 
-            document.body.classList.toggle('light-mode'); 
-        }
-
-        // --- PROPS ---
-        const propDB = {
-            'light': [
-                {n:'Skypanel', i:'fa-table-cells', w:40, h:25}, 
-                {n:'Spot', i:'fa-bullseye', w:25, h:35}, 
-                {n:'Tube', i:'fa-grip-lines-vertical', w:10, h:50}
-            ],
-            'furniture': [
-                {n:'Chair', i:'fa-chair', w:30, h:30}, 
-                {n:'Table', i:'fa-table', w:60, h:40}, 
-                {n:'Bed', i:'fa-bed', w:60, h:80}
-            ],
-            'set': [
-                {n:'Wall', i:'fa-square', w:100, h:10}, 
-                {n:'Window', i:'fa-border-all', w:60, h:5}
-            ]
-        };
-        
-        function filterProps(cat) {
-            const grid = document.getElementById('prop-grid'); 
-            grid.innerHTML = '';
-            propDB[cat].forEach(p => {
-                const b = document.createElement('button');
-                b.className = "aspect-square bg-white/5 border border-white/10 rounded-2xl flex flex-col items-center justify-center hover:bg-white/10 transition";
-                b.innerHTML = `<i class="fa-solid ${p.i} text-xl mb-2 text-white/50"></i><span class="text-[8px] uppercase font-bold text-brand">${p.n}</span>`;
-                b.onclick = () => addObject('prop', {name:p.n, icon:p.i, w:p.w, h:p.h});
-                grid.appendChild(b);
-            });
-        }
-        
-        function openPropPicker() { 
-            document.getElementById('prop-picker').classList.remove('hidden'); 
-        }
-
-        // Keyboard shortcuts
-        document.addEventListener('keydown', (e) => {
-            if (e.ctrlKey || e.metaKey) {
-                if (e.key === 'z' && !e.shiftKey) {
-                    e.preventDefault();
-                    undo();
-                } else if (e.key === 'z' && e.shiftKey || e.key === 'y') {
-                    e.preventDefault();
-                    redo();
-                }
-            }
-            if (e.key === 'Delete' || e.key === 'Backspace') {
-                if (selectedId && !e.target.matches('input, textarea')) {
-                    e.preventDefault();
-                    deleteSelected();
-                }
-            }
-        });
-
-    </script>
+})();
+</script>
 </body>
 </html>
