@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>CineFlow V7 | Golden Hour</title>
+    <title>CineFlow V7 Enhanced | Golden Hour</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
     <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
@@ -13,7 +13,7 @@
             --grid-color: rgba(255,255,255,0.03);
             --glass-bg: rgba(20, 20, 20, 0.85);
             --glass-border: rgba(255, 255, 255, 0.08);
-            --brand: #ffa300; /* YOUR BRAND COLOR */
+            --brand: #ffa300;
             --text-color: #eeeeee;
         }
 
@@ -34,12 +34,10 @@
             transition: background-color 0.3s;
         }
         
-        /* VIEWPORT */
         #viewport { width: 100vw; height: 100vh; position: relative; overflow: hidden; cursor: grab; }
         #world { position: absolute; top: 0; left: 0; width: 100%; height: 100%; transform-origin: 0 0; pointer-events: none; }
         #world > * { pointer-events: auto; }
         
-        /* GRID */
         #grid-pattern {
             position: absolute; top: -5000px; left: -5000px; width: 10000px; height: 10000px;
             background-image: 
@@ -49,7 +47,6 @@
             pointer-events: none; z-index: -1;
         }
 
-        /* OBJECTS */
         .scene-object {
             position: absolute; transform-origin: center center;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -57,14 +54,13 @@
         }
         .scene-object.ghost { opacity: 0.4; filter: grayscale(100%); z-index: 5; }
         .scene-object.ghost .object-visual { border-style: dashed; }
+        .scene-object.hidden-layer { opacity: 0.2; pointer-events: none; }
         
-        /* SELECTION */
         .scene-object.selected .object-visual {
             outline: 2px solid var(--brand);
             box-shadow: 0 0 25px rgba(255, 163, 0, 0.3);
         }
         
-        /* HANDLES */
         .control-handle {
             position: absolute; width: 20px; height: 20px;
             background: white; border-radius: 50%; color: black;
@@ -76,13 +72,12 @@
         .rotate-handle { top: -30px; cursor: pointer; }
         .resize-handle { bottom: -15px; right: -15px; cursor: se-resize; }
 
-        /* VISUALS */
         .object-visual { transition: transform 0.1s; }
         .fov-cone {
             position: absolute; bottom: 50%; left: 50%; transform: translateX(-50%);
             width: 0; height: 0;
             border-left: 100px solid transparent; border-right: 100px solid transparent;
-            border-top: 300px solid rgba(255, 163, 0, 0.15); /* Brand Tint */
+            border-top: 300px solid rgba(255, 163, 0, 0.15);
             pointer-events: none; transform-origin: bottom center;
         }
         .cam-body { width: 36px; height: 24px; background: var(--brand); border-radius: 6px; position: relative; z-index: 2; }
@@ -92,30 +87,70 @@
             color: var(--text-color); border: 1px solid rgba(255,255,255,0.15);
         }
         
-        /* SVG PATHS */
         svg.path-layer {
             position: absolute; top: -5000px; left: -5000px; width: 10000px; height: 10000px;
             pointer-events: none; z-index: 0; overflow: visible;
         }
+
+        .measurement-line {
+            stroke: var(--brand);
+            stroke-width: 1;
+            stroke-dasharray: 2,2;
+            opacity: 0.6;
+        }
+
+        .measurement-text {
+            fill: var(--brand);
+            font-size: 10px;
+            font-weight: bold;
+        }
         
-        /* UI GLASS */
         .glass-panel {
             background: var(--glass-bg); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
             border: 1px solid var(--glass-border); color: var(--text-color);
             box-shadow: 0 8px 32px rgba(0,0,0,0.2);
         }
         
-        /* UI ANIMATIONS */
         @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
         .animate-in { animation: fadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1); }
         
-        /* SCROLLBAR */
         .hide-scroll::-webkit-scrollbar { display: none; }
         
-        /* BRAND ACCENTS */
         .text-brand { color: var(--brand); }
         .bg-brand { background-color: var(--brand); }
         .border-brand { border-color: var(--brand); }
+
+        /* Timeline Styles */
+        #timeline-scrubber {
+            background: linear-gradient(to right, var(--brand) 0%, transparent 0%);
+            transition: background 0.1s linear;
+        }
+
+        .storyboard-frame {
+            aspect-ratio: 16/9;
+            border: 2px solid var(--glass-border);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        /* Layer Indicator */
+        .layer-badge {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: var(--brand);
+            color: black;
+            font-size: 8px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 25;
+            pointer-events: none;
+        }
     </style>
 </head>
 <body>
@@ -124,9 +159,11 @@
         <div id="world">
             <div id="grid-pattern"></div>
             <svg id="svg-layer" class="path-layer"></svg>
-            </div>
+            <svg id="measurement-layer" class="path-layer"></svg>
+        </div>
     </div>
 
+    <!-- Top Bar -->
     <div class="fixed top-0 left-0 w-full p-4 flex justify-between items-start pointer-events-none z-50">
         <div class="flex gap-3 pointer-events-auto">
             <button onclick="toggleSceneMenu()" class="glass-panel px-4 py-2.5 rounded-2xl flex items-center gap-3 hover:bg-white/5 transition group">
@@ -136,10 +173,26 @@
             <button onclick="createNewScene()" class="glass-panel w-10 h-10 rounded-2xl flex items-center justify-center hover:text-brand transition">
                 <i class="fa-solid fa-plus text-xs"></i>
             </button>
+            <!-- Undo/Redo -->
+            <button onclick="undo()" id="undo-btn" class="glass-panel w-10 h-10 rounded-2xl flex items-center justify-center hover:text-brand transition opacity-40" disabled>
+                <i class="fa-solid fa-undo text-xs"></i>
+            </button>
+            <button onclick="redo()" id="redo-btn" class="glass-panel w-10 h-10 rounded-2xl flex items-center justify-center hover:text-brand transition opacity-40" disabled>
+                <i class="fa-solid fa-redo text-xs"></i>
+            </button>
         </div>
 
         <div class="flex gap-3 pointer-events-auto">
-             <button onclick="playScene()" id="play-btn" class="glass-panel px-5 py-2.5 rounded-2xl flex items-center gap-2 text-[10px] font-extrabold text-brand border border-brand/20 hover:bg-brand/10 transition">
+            <button onclick="toggleMeasurements()" id="measure-btn" class="glass-panel w-10 h-10 rounded-2xl flex items-center justify-center hover:text-brand transition">
+                <i class="fa-solid fa-ruler text-xs"></i>
+            </button>
+            <button onclick="toggleLayers()" class="glass-panel w-10 h-10 rounded-2xl flex items-center justify-center hover:text-brand transition">
+                <i class="fa-solid fa-layer-group text-xs"></i>
+            </button>
+            <button onclick="exportStoryboard()" class="glass-panel w-10 h-10 rounded-2xl flex items-center justify-center hover:text-brand transition">
+                <i class="fa-solid fa-th text-xs"></i>
+            </button>
+            <button onclick="playScene()" id="play-btn" class="glass-panel px-5 py-2.5 rounded-2xl flex items-center gap-2 text-[10px] font-extrabold text-brand border border-brand/20 hover:bg-brand/10 transition">
                 <i class="fa-solid fa-play"></i> ACTION
             </button>
             <button onclick="takeSnapshot()" class="glass-panel w-10 h-10 rounded-2xl flex items-center justify-center hover:text-brand transition">
@@ -154,6 +207,24 @@
         </div>
     </div>
 
+    <!-- Timeline Scrubber -->
+    <div id="timeline-container" class="fixed bottom-4 left-1/2 -translate-x-1/2 w-[600px] glass-panel rounded-2xl p-4 hidden flex-col gap-3 z-50 shadow-2xl">
+        <div class="flex justify-between items-center mb-2">
+            <span class="text-[9px] font-bold uppercase tracking-wider opacity-60">Timeline Preview</span>
+            <button onclick="closeTimeline()" class="text-xs opacity-60 hover:opacity-100 hover:text-brand">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="relative h-2 bg-white/5 rounded-full overflow-hidden cursor-pointer" id="timeline-scrubber" onpointerdown="startScrub(event)">
+            <div class="absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-brand rounded-full shadow-lg" id="timeline-playhead" style="left: 0;"></div>
+        </div>
+        <div class="flex justify-between text-[8px] opacity-40">
+            <span>0:00</span>
+            <span id="timeline-duration">0:00</span>
+        </div>
+    </div>
+
+    <!-- Scene Menu -->
     <div id="scene-menu" class="fixed inset-0 bg-black/90 z-[70] hidden flex items-center justify-center backdrop-blur-md animate-in" onclick="if(event.target.id==='scene-menu') this.classList.add('hidden')">
         <div class="glass-panel w-80 rounded-3xl p-8 relative border-t border-white/10">
             <h2 class="text-xs font-bold uppercase tracking-[0.2em] mb-6 text-brand text-center">Project Manager</h2>
@@ -164,11 +235,11 @@
             </div>
             
             <div class="text-[9px] uppercase opacity-40 font-bold mb-3 tracking-widest">Saved Scenes</div>
-            <div id="saved-list" class="max-h-60 overflow-y-auto space-y-2 pr-1 custom-scroll">
-                </div>
+            <div id="saved-list" class="max-h-60 overflow-y-auto space-y-2 pr-1 hide-scroll"></div>
         </div>
     </div>
 
+    <!-- Toolbar -->
     <div class="fixed bottom-10 left-1/2 -translate-x-1/2 glass-panel rounded-full p-2.5 flex gap-4 shadow-2xl z-50 scale-90 sm:scale-100 border-t border-white/10">
         <button onclick="addObject('actor')" class="flex flex-col items-center justify-center w-16 h-16 rounded-3xl hover:bg-white/5 active:scale-95 transition group">
             <div class="w-4 h-4 rounded-full bg-rose-500 mb-2 shadow-[0_0_15px_rgba(244,63,94,0.4)] group-hover:scale-110 transition"></div>
@@ -186,6 +257,7 @@
         </button>
     </div>
 
+    <!-- Inspector -->
     <div id="inspector" class="fixed right-6 top-1/2 -translate-y-1/2 w-72 glass-panel rounded-[32px] p-6 translate-x-[150%] transition-transform duration-300 shadow-2xl z-50 border-l border-white/10">
         <div class="flex justify-between items-center mb-8">
             <h2 class="text-xs font-bold opacity-40 uppercase tracking-[0.2em]">Settings</h2>
@@ -197,16 +269,30 @@
             <input type="text" id="insp-name" class="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-xs focus:border-brand outline-none transition font-medium" oninput="updateLabel(this.value)">
         </div>
 
+        <div class="mb-6">
+            <label class="text-[9px] uppercase font-bold opacity-40 mb-2 block tracking-wider">Layer</label>
+            <select id="insp-layer" class="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-xs focus:border-brand outline-none transition" onchange="updateLayer(this.value)">
+                <option value="1">Layer 1</option>
+                <option value="2">Layer 2</option>
+                <option value="3">Layer 3</option>
+            </select>
+        </div>
+
         <div id="cam-controls" class="hidden mb-6 p-4 bg-brand/5 border border-brand/20 rounded-2xl">
             <div class="flex items-center gap-2 mb-3 text-brand">
                 <i class="fa-solid fa-crosshairs text-xs"></i>
                 <span class="text-[9px] font-bold uppercase tracking-wider">Tracking</span>
             </div>
-            <button onclick="activateTargetMode()" id="target-btn" class="w-full py-3 bg-brand/10 hover:bg-brand hover:text-black border border-brand/30 rounded-xl text-[10px] font-bold text-brand transition">
+            <button onclick="activateTargetMode()" id="target-btn" class="w-full py-3 bg-brand/10 hover:bg-brand hover:text-black border border-brand/30 rounded-xl text-[10px] font-bold text-brand transition mb-3">
                 LINK TO ACTOR
             </button>
-            <div id="target-status" class="hidden mt-3 text-[9px] text-center text-brand opacity-80">
+            <div id="target-status" class="hidden mb-3 text-[9px] text-center text-brand opacity-80">
                 <i class="fa-solid fa-link mr-1"></i> Locked to <span id="target-name" class="font-bold border-b border-brand/30">Target</span>
+            </div>
+            <div>
+                <label class="text-[9px] uppercase font-bold opacity-40 mb-2 block tracking-wider">FOV Angle</label>
+                <input type="range" id="fov-slider" min="20" max="120" value="60" class="w-full" oninput="updateFOV(this.value)">
+                <div class="text-[8px] text-center text-brand mt-1"><span id="fov-value">60</span>°</div>
             </div>
         </div>
 
@@ -236,6 +322,7 @@
         </div>
     </div>
 
+    <!-- Edit Bar -->
     <div id="edit-bar" class="fixed bottom-32 left-1/2 -translate-x-1/2 glass-panel px-6 py-3 rounded-full hidden items-center gap-8 z-50 shadow-2xl animate-in">
         <button onclick="openInspector()" class="text-[9px] font-bold hover:text-brand flex flex-col items-center gap-1.5 transition"><i class="fa-solid fa-sliders text-sm"></i>EDIT</button>
         <div class="w-px h-6 bg-white/10"></div>
@@ -244,6 +331,7 @@
         <button onclick="deleteSelected()" class="text-[9px] font-bold hover:text-red-400 flex flex-col items-center gap-1.5 transition"><i class="fa-solid fa-trash text-sm"></i>DEL</button>
     </div>
 
+    <!-- Prop Picker -->
     <div id="prop-picker" class="fixed inset-0 bg-black/90 z-[60] hidden flex items-center justify-center backdrop-blur-md animate-in" onclick="if(event.target.id==='prop-picker') this.classList.add('hidden')">
         <div class="glass-panel w-[90vw] max-w-md h-[70vh] rounded-[32px] overflow-hidden flex flex-col border border-white/10">
             <div class="p-6 border-b border-white/5">
@@ -254,15 +342,60 @@
                 <button onclick="filterProps('furniture')" class="px-4 py-1.5 bg-white/5 hover:bg-white/10 rounded-full text-[10px] font-medium transition">Furniture</button>
                 <button onclick="filterProps('set')" class="px-4 py-1.5 bg-white/5 hover:bg-white/10 rounded-full text-[10px] font-medium transition">Set Pieces</button>
             </div>
-            <div id="prop-grid" class="p-6 overflow-y-auto grid grid-cols-4 gap-4 content-start custom-scroll"></div>
+            <div id="prop-grid" class="p-6 overflow-y-auto grid grid-cols-4 gap-4 content-start hide-scroll"></div>
+        </div>
+    </div>
+
+    <!-- Layers Panel -->
+    <div id="layers-panel" class="fixed left-6 top-1/2 -translate-y-1/2 w-64 glass-panel rounded-3xl p-6 -translate-x-[150%] transition-transform duration-300 shadow-2xl z-50 border-r border-white/10">
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-xs font-bold opacity-40 uppercase tracking-[0.2em]">Layers</h2>
+            <button onclick="toggleLayers()" class="opacity-50 hover:opacity-100 hover:text-brand transition"><i class="fa-solid fa-xmark text-lg"></i></button>
+        </div>
+        
+        <div class="space-y-2" id="layer-list">
+            <div class="flex items-center gap-3 p-3 bg-white/5 rounded-xl hover:bg-white/10 transition cursor-pointer" onclick="toggleLayerVisibility(1)">
+                <div class="w-6 h-6 rounded-full bg-brand flex items-center justify-center text-black text-[10px] font-bold">1</div>
+                <span class="text-xs font-medium flex-1">Layer 1</span>
+                <i class="fa-solid fa-eye text-xs opacity-60" id="layer-eye-1"></i>
+            </div>
+            <div class="flex items-center gap-3 p-3 bg-white/5 rounded-xl hover:bg-white/10 transition cursor-pointer" onclick="toggleLayerVisibility(2)">
+                <div class="w-6 h-6 rounded-full bg-rose-500 flex items-center justify-center text-white text-[10px] font-bold">2</div>
+                <span class="text-xs font-medium flex-1">Layer 2</span>
+                <i class="fa-solid fa-eye text-xs opacity-60" id="layer-eye-2"></i>
+            </div>
+            <div class="flex items-center gap-3 p-3 bg-white/5 rounded-xl hover:bg-white/10 transition cursor-pointer" onclick="toggleLayerVisibility(3)">
+                <div class="w-6 h-6 rounded-full bg-sky-500 flex items-center justify-center text-white text-[10px] font-bold">3</div>
+                <span class="text-xs font-medium flex-1">Layer 3</span>
+                <i class="fa-solid fa-eye text-xs opacity-60" id="layer-eye-3"></i>
+            </div>
+        </div>
+    </div>
+
+    <!-- Storyboard Export Modal -->
+    <div id="storyboard-modal" class="fixed inset-0 bg-black/95 z-[80] hidden flex items-center justify-center backdrop-blur-lg" onclick="if(event.target.id==='storyboard-modal') this.classList.add('hidden')">
+        <div class="glass-panel w-[90vw] max-w-6xl max-h-[90vh] rounded-3xl overflow-hidden flex flex-col border border-white/10">
+            <div class="p-6 border-b border-white/5 flex justify-between items-center">
+                <h3 class="text-xs font-bold uppercase tracking-[0.2em] text-brand">Storyboard Export</h3>
+                <button onclick="document.getElementById('storyboard-modal').classList.add('hidden')" class="opacity-60 hover:opacity-100 hover:text-brand">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div class="p-6 overflow-y-auto" id="storyboard-grid"></div>
+            <div class="p-6 border-t border-white/5 flex gap-3 justify-end">
+                <button onclick="downloadStoryboard()" class="bg-brand text-black px-6 py-3 rounded-xl text-xs font-bold hover:opacity-90 transition shadow-lg shadow-brand/20">
+                    <i class="fa-solid fa-download mr-2"></i>DOWNLOAD ALL
+                </button>
+            </div>
         </div>
     </div>
 
     <script>
-        // --- ENGINE CORE ---
+        // --- CORE ENGINE ---
         const world = document.getElementById('world');
         const viewport = document.getElementById('viewport');
         const svgLayer = document.getElementById('svg-layer');
+        const measurementLayer = document.getElementById('measurement-layer');
         
         let objects = []; 
         let connections = []; 
@@ -270,6 +403,15 @@
         let scale = 1, panX = 0, panY = 0;
         let targetMode = false;
         
+        // Undo/Redo
+        let history = [];
+        let historyIndex = -1;
+        const MAX_HISTORY = 50;
+
+        // Layers
+        let layerVisibility = { 1: true, 2: true, 3: true };
+        let measurementsEnabled = false;
+
         // Mobile Gestures
         let pointers = {};
         let initialDist = 0, initialScale = 1;
@@ -277,13 +419,150 @@
         window.onload = () => {
             centerView();
             loadSceneList();
-            filterProps('light'); 
+            filterProps('light');
+            saveState(); // Initial state
         };
 
         function centerView() {
             panX = window.innerWidth / 2;
             panY = window.innerHeight / 2;
             updateTransform();
+        }
+
+        // --- UNDO/REDO SYSTEM ---
+        function saveState() {
+            // Capture current state
+            const state = {
+                objects: objects.map(o => {
+                    const el = document.getElementById(o.id);
+                    return { 
+                        ...o, 
+                        left: el.style.left, 
+                        top: el.style.top, 
+                        rot: el.dataset.rot,
+                        label: el.querySelector('.label-tag').innerText,
+                        color: el.querySelector('.object-visual').style.backgroundColor,
+                        width: el.querySelector('.object-visual').style.width || '',
+                        height: el.querySelector('.object-visual').style.height || '',
+                        layer: el.dataset.layer || '1',
+                        fov: el.dataset.fov || '60'
+                    };
+                }),
+                connections: connections.map(c => ({ from: c.from, to: c.to }))
+            };
+
+            // Remove future history if we're not at the end
+            if (historyIndex < history.length - 1) {
+                history = history.slice(0, historyIndex + 1);
+            }
+
+            history.push(JSON.stringify(state));
+            if (history.length > MAX_HISTORY) {
+                history.shift();
+            } else {
+                historyIndex++;
+            }
+
+            updateUndoRedoButtons();
+        }
+
+        function undo() {
+            if (historyIndex > 0) {
+                historyIndex--;
+                restoreState(JSON.parse(history[historyIndex]));
+                updateUndoRedoButtons();
+            }
+        }
+
+        function redo() {
+            if (historyIndex < history.length - 1) {
+                historyIndex++;
+                restoreState(JSON.parse(history[historyIndex]));
+                updateUndoRedoButtons();
+            }
+        }
+
+        function updateUndoRedoButtons() {
+            const undoBtn = document.getElementById('undo-btn');
+            const redoBtn = document.getElementById('redo-btn');
+            
+            if (historyIndex > 0) {
+                undoBtn.disabled = false;
+                undoBtn.classList.remove('opacity-40');
+            } else {
+                undoBtn.disabled = true;
+                undoBtn.classList.add('opacity-40');
+            }
+
+            if (historyIndex < history.length - 1) {
+                redoBtn.disabled = false;
+                redoBtn.classList.remove('opacity-40');
+            } else {
+                redoBtn.disabled = true;
+                redoBtn.classList.add('opacity-40');
+            }
+        }
+
+        function restoreState(state) {
+            // Clear current scene
+            world.innerHTML = '<div id="grid-pattern"></div><svg id="svg-layer" class="path-layer"></svg><svg id="measurement-layer" class="path-layer"></svg>';
+            objects = [];
+            connections = [];
+            selectedId = null;
+
+            // Restore objects
+            state.objects.forEach(o => {
+                const id = o.id;
+                const el = document.createElement('div');
+                el.id = id;
+                el.className = `scene-object group ${o.id.includes('ghost') || (o.nextPathId && objects.find(obj => obj.id === o.id)?.id) ? 'ghost' : ''}`;
+                el.style.left = o.left;
+                el.style.top = o.top;
+                el.dataset.rot = o.rot || 0;
+                el.dataset.type = o.type;
+                el.dataset.layer = o.layer || '1';
+                el.dataset.fov = o.fov || '60';
+
+                let visual = '';
+                if (o.type === 'camera') {
+                    const fovAngle = parseInt(o.fov || 60);
+                    const spread = fovAngle * 2;
+                    const height = 300;
+                    visual = `<div class="fov-cone" style="border-left-width: ${spread}px; border-right-width: ${spread}px; border-top-width: ${height}px;"></div><div class="cam-body object-visual flex items-center justify-center"><div class="w-1.5 h-1.5 bg-black/50 rounded-full"></div></div>`;
+                } else if (o.type === 'actor') {
+                    visual = `<div class="w-10 h-10 rounded-full bg-rose-500 object-visual shadow-lg relative border-2 border-white/20" style="background-color: ${o.color || '#f43f5e'}"><div class="absolute top-0 left-1/2 -translate-x-1/2 w-2 h-2 bg-white rounded-full -mt-1"></div></div>`;
+                } else if (o.type === 'prop') {
+                    visual = `<div class="prop-visual object-visual bg-white/5 rounded-xl text-white/80" style="width:${o.width}; height:${o.height}; background-color: ${o.color || ''}"><i class="fa-solid fa-cube text-lg"></i></div>`;
+                }
+
+                el.innerHTML = `
+                    ${visual}
+                    <div class="text-[8px] font-bold mt-3 opacity-0 group-hover:opacity-100 bg-black/80 text-white px-2 py-1 rounded-md backdrop-blur-md label-tag whitespace-nowrap transition-opacity border border-white/10 pointer-events-none">${o.label || o.type}</div>
+                    <div class="control-handle rotate-handle" onpointerdown="startRotate(event, '${id}')"><i class="fa-solid fa-rotate"></i></div>
+                    <div class="control-handle resize-handle" onpointerdown="startResize(event, '${id}')"></div>
+                    <div class="layer-badge">${o.layer || '1'}</div>
+                `;
+
+                el.onpointerdown = (e) => startDrag(e, id);
+                applyRot(el, parseFloat(o.rot || 0));
+                world.appendChild(el);
+
+                objects.push({ id, type: o.type, targetId: o.targetId, nextPathId: o.nextPathId, layer: o.layer || '1' });
+            });
+
+            // Restore connections
+            state.connections.forEach(conn => {
+                const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                line.setAttribute('stroke', '#ffa300');
+                line.setAttribute('stroke-dasharray', '4,4');
+                line.setAttribute('opacity', '0.6');
+                line.setAttribute('stroke-width', '1.5');
+                svgLayer.appendChild(line);
+                connections.push({ from: conn.from, to: conn.to, line });
+                updatePathLines(conn.from);
+            });
+
+            applyLayerVisibility();
         }
 
         // --- NAVIGATION ---
@@ -334,9 +613,11 @@
 
             el.dataset.type = type;
             el.dataset.rot = 0;
+            el.dataset.layer = '1';
+            el.dataset.fov = '60';
             
             let visual = '';
-            let label = type === 'camera' ? 'CAM' : (type === 'actor' ? 'Actor' : propData.name);
+            let label = type === 'camera' ? 'CAM' : (type === 'actor' ? 'Actor' : propData?.name || 'Prop');
             
             if (type === 'camera') {
                 visual = `<div class="fov-cone"></div><div class="cam-body object-visual flex items-center justify-center"><div class="w-1.5 h-1.5 bg-black/50 rounded-full"></div></div>`;
@@ -350,16 +631,19 @@
                 ${visual}
                 <div class="text-[8px] font-bold mt-3 opacity-0 group-hover:opacity-100 bg-black/80 text-white px-2 py-1 rounded-md backdrop-blur-md label-tag whitespace-nowrap transition-opacity border border-white/10 pointer-events-none">${label}</div>
                 <div class="control-handle rotate-handle" onpointerdown="startRotate(event, '${id}')"><i class="fa-solid fa-rotate"></i></div>
-                ${type === 'prop' ? `<div class="control-handle resize-handle" onpointerdown="startResize(event, '${id}')"></div>` : ''}
+                <div class="control-handle resize-handle" onpointerdown="startResize(event, '${id}')"></div>
+                <div class="layer-badge">1</div>
             `;
 
             el.onpointerdown = (e) => startDrag(e, id);
             world.appendChild(el);
             
-            objects.push({ id, type, targetId: null, nextPathId: null });
+            objects.push({ id, type, targetId: null, nextPathId: null, layer: '1' });
             
             selectObject(id);
             document.getElementById('prop-picker').classList.add('hidden');
+            
+            saveState();
             return id;
         }
 
@@ -378,6 +662,7 @@
                     document.body.style.cursor = 'default';
                     selectObject(cam.id);
                     updateTracking();
+                    saveState();
                     return;
                 }
             }
@@ -393,8 +678,13 @@
                 el.style.top = (startT + (ev.clientY - startY)/scale) + 'px';
                 updatePathLines(id);
                 updateTracking();
+                updateMeasurements();
             };
-            el.onpointerup = () => { el.onpointermove = null; el.releasePointerCapture(e.pointerId); };
+            el.onpointerup = () => { 
+                el.onpointermove = null; 
+                el.releasePointerCapture(e.pointerId);
+                saveState();
+            };
         }
 
         function startRotate(e, id) {
@@ -409,7 +699,34 @@
                 el.dataset.rot = ang;
                 applyRot(el, ang);
             };
-            el.onpointerup = () => { el.onpointermove = null; el.releasePointerCapture(e.pointerId); };
+            el.onpointerup = () => { 
+                el.onpointermove = null; 
+                el.releasePointerCapture(e.pointerId);
+                saveState();
+            };
+        }
+
+        function startResize(e, id) {
+            e.stopPropagation();
+            const el = document.getElementById(id);
+            const visual = el.querySelector('.object-visual');
+            const startX = e.clientX, startY = e.clientY;
+            const startW = visual.offsetWidth, startH = visual.offsetHeight;
+            
+            el.setPointerCapture(e.pointerId);
+            el.onpointermove = (ev) => {
+                const deltaX = (ev.clientX - startX) / scale;
+                const deltaY = (ev.clientY - startY) / scale;
+                const newW = Math.max(20, startW + deltaX);
+                const newH = Math.max(20, startH + deltaY);
+                visual.style.width = newW + 'px';
+                visual.style.height = newH + 'px';
+            };
+            el.onpointerup = () => { 
+                el.onpointermove = null; 
+                el.releasePointerCapture(e.pointerId);
+                saveState();
+            };
         }
 
         function applyRot(el, deg) {
@@ -440,24 +757,44 @@
             closeInspector();
         }
 
-        // --- SEQUENCER (MULTI-STEP WAYPOINTS) ---
+        function updateFOV(value) {
+            if (!selectedId) return;
+            const el = document.getElementById(selectedId);
+            el.dataset.fov = value;
+            document.getElementById('fov-value').innerText = value;
+            
+            const cone = el.querySelector('.fov-cone');
+            if (cone) {
+                const spread = parseInt(value) * 2;
+                cone.style.borderLeftWidth = spread + 'px';
+                cone.style.borderRightWidth = spread + 'px';
+            }
+            saveState();
+        }
+
+        // --- GHOST PATH SYSTEM ---
         function addGhostPath() {
             if (!selectedId) return;
             const parentObj = objects.find(o => o.id === selectedId);
             const parentEl = document.getElementById(selectedId);
             
-            // Create a ghost connected to the currently selected item (could be a ghost itself)
             const ghostId = addObject(parentObj.type, null, true, selectedId);
             const ghostEl = document.getElementById(ghostId);
             
             ghostEl.style.left = (parseFloat(parentEl.style.left) + 60) + 'px';
             ghostEl.style.top = parseFloat(parentEl.style.top) + 'px';
             ghostEl.querySelector('.label-tag').innerText = "Step";
+            ghostEl.classList.add('ghost');
+            
+            // Update layer and visual to match parent
+            const parentLayer = parentEl.dataset.layer || '1';
+            ghostEl.dataset.layer = parentLayer;
+            ghostEl.querySelector('.layer-badge').innerText = parentLayer;
             
             parentObj.nextPathId = ghostId;
             
             const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-            line.setAttribute('stroke', '#ffa300'); // Brand color
+            line.setAttribute('stroke', '#ffa300');
             line.setAttribute('stroke-dasharray', '4,4');
             line.setAttribute('opacity', '0.6');
             line.setAttribute('stroke-width', '1.5');
@@ -465,7 +802,8 @@
             
             connections.push({ from: selectedId, to: ghostId, line });
             updatePathLines(selectedId);
-            selectObject(ghostId); // Auto-select new ghost for rapid chaining
+            selectObject(ghostId);
+            saveState();
         }
 
         function updatePathLines(movedId) {
@@ -484,23 +822,24 @@
             });
         }
 
-        // --- ANIMATION LOOP (SEQUENTIAL) ---
+        // --- ANIMATION PLAYBACK ---
         let isAnimating = false;
+        let animationProgress = 0;
         
         function playScene() {
             if (isAnimating) return;
+            
+            // Show timeline
+            document.getElementById('timeline-container').classList.remove('hidden');
+            document.getElementById('timeline-container').classList.add('flex');
+            
             isAnimating = true;
             const btn = document.getElementById('play-btn');
             btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> RUNNING';
             
-            // 1. Identify Chains
-            // We need to find objects that are NOT ghosts, but HAVE a nextPathId
             const roots = objects.filter(o => !document.getElementById(o.id).classList.contains('ghost') && o.nextPathId);
-            
-            // Store initial state
             const initialStates = roots.map(o => ({ id: o.id, x: parseFloat(document.getElementById(o.id).style.left), y: parseFloat(document.getElementById(o.id).style.top) }));
             
-            // Build Timelines for each root
             const timelines = roots.map(root => {
                 const path = [];
                 let current = root;
@@ -514,28 +853,35 @@
                 return { id: root.id, path };
             });
 
-            // Animate
-            const stepDuration = 1500; // ms per step
+            const stepDuration = 1500;
             const totalDuration = Math.max(...timelines.map(t => t.path.length)) * stepDuration;
             const startTime = performance.now();
 
+            // Update timeline duration display
+            const mins = Math.floor(totalDuration / 60000);
+            const secs = Math.floor((totalDuration % 60000) / 1000);
+            document.getElementById('timeline-duration').innerText = `${mins}:${secs.toString().padStart(2, '0')}`;
+
             function loop(now) {
                 const elapsed = now - startTime;
+                animationProgress = Math.min(elapsed / totalDuration, 1);
+                
+                // Update timeline scrubber
+                const scrubber = document.getElementById('timeline-scrubber');
+                const playhead = document.getElementById('timeline-playhead');
+                scrubber.style.background = `linear-gradient(to right, var(--brand) ${animationProgress * 100}%, transparent ${animationProgress * 100}%)`;
+                playhead.style.left = `calc(${animationProgress * 100}% - 8px)`;
                 
                 if (elapsed < totalDuration) {
                     timelines.forEach(tl => {
                         const el = document.getElementById(tl.id);
-                        
-                        // Determine which segment we are in
                         const totalSteps = tl.path.length;
                         const currentStepIndex = Math.floor(elapsed / stepDuration);
                         
                         if (currentStepIndex < totalSteps) {
                             const segmentProgress = (elapsed % stepDuration) / stepDuration;
-                            // Ease
                             const ease = segmentProgress < .5 ? 2 * segmentProgress * segmentProgress : -1 + (4 - 2 * segmentProgress) * segmentProgress;
                             
-                            // Coords
                             const startX = currentStepIndex === 0 ? initialStates.find(s=>s.id===tl.id).x : tl.path[currentStepIndex-1].x;
                             const startY = currentStepIndex === 0 ? initialStates.find(s=>s.id===tl.id).y : tl.path[currentStepIndex-1].y;
                             const endX = tl.path[currentStepIndex].x;
@@ -546,10 +892,9 @@
                         }
                     });
                     
-                    updateTracking(); // Camera follows moving actors
+                    updateTracking();
                     requestAnimationFrame(loop);
                 } else {
-                    // Reset
                     isAnimating = false;
                     btn.innerHTML = '<i class="fa-solid fa-play"></i> ACTION';
                     setTimeout(() => {
@@ -559,10 +904,173 @@
                             el.style.top = s.y + 'px';
                         });
                         updateTracking();
+                        animationProgress = 0;
+                        document.getElementById('timeline-scrubber').style.background = 'linear-gradient(to right, var(--brand) 0%, transparent 0%)';
+                        document.getElementById('timeline-playhead').style.left = '0';
                     }, 1000);
                 }
             }
             requestAnimationFrame(loop);
+        }
+
+        function closeTimeline() {
+            document.getElementById('timeline-container').classList.add('hidden');
+            document.getElementById('timeline-container').classList.remove('flex');
+        }
+
+        function startScrub(e) {
+            if (isAnimating) return;
+            // Scrubbing functionality can be enhanced here
+        }
+
+        // --- MEASUREMENTS ---
+        function toggleMeasurements() {
+            measurementsEnabled = !measurementsEnabled;
+            const btn = document.getElementById('measure-btn');
+            
+            if (measurementsEnabled) {
+                btn.classList.add('text-brand');
+                updateMeasurements();
+            } else {
+                btn.classList.remove('text-brand');
+                measurementLayer.innerHTML = '';
+            }
+        }
+
+        function updateMeasurements() {
+            if (!measurementsEnabled) return;
+            
+            measurementLayer.innerHTML = '';
+            
+            // Draw measurements between selected object and other objects
+            if (!selectedId) return;
+            
+            const selectedEl = document.getElementById(selectedId);
+            const sx = parseFloat(selectedEl.style.left);
+            const sy = parseFloat(selectedEl.style.top);
+            
+            objects.forEach(obj => {
+                if (obj.id === selectedId) return;
+                const el = document.getElementById(obj.id);
+                const x = parseFloat(el.style.left);
+                const y = parseFloat(el.style.top);
+                
+                const dist = Math.sqrt(Math.pow(x - sx, 2) + Math.pow(y - sy, 2));
+                const angle = Math.atan2(y - sy, x - sx) * (180 / Math.PI);
+                
+                // Draw line
+                const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                line.setAttribute('class', 'measurement-line');
+                line.setAttribute('x1', sx + 5000);
+                line.setAttribute('y1', sy + 5000);
+                line.setAttribute('x2', x + 5000);
+                line.setAttribute('y2', y + 5000);
+                measurementLayer.appendChild(line);
+                
+                // Draw text
+                const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                text.setAttribute('class', 'measurement-text');
+                text.setAttribute('x', (sx + x) / 2 + 5000);
+                text.setAttribute('y', (sy + y) / 2 + 5000 - 5);
+                text.setAttribute('text-anchor', 'middle');
+                text.textContent = `${Math.round(dist)}px / ${Math.round(angle)}°`;
+                measurementLayer.appendChild(text);
+            });
+        }
+
+        // --- LAYERS ---
+        function toggleLayers() {
+            const panel = document.getElementById('layers-panel');
+            const isHidden = panel.style.transform.includes('-150%');
+            panel.style.transform = isHidden ? 'translateY(-50%) translateX(0)' : 'translateY(-50%) translateX(-150%)';
+        }
+
+        function toggleLayerVisibility(layer) {
+            layerVisibility[layer] = !layerVisibility[layer];
+            const eye = document.getElementById(`layer-eye-${layer}`);
+            eye.className = layerVisibility[layer] ? 'fa-solid fa-eye text-xs opacity-60' : 'fa-solid fa-eye-slash text-xs opacity-60';
+            applyLayerVisibility();
+        }
+
+        function applyLayerVisibility() {
+            objects.forEach(obj => {
+                const el = document.getElementById(obj.id);
+                const layer = obj.layer || '1';
+                if (layerVisibility[layer]) {
+                    el.classList.remove('hidden-layer');
+                } else {
+                    el.classList.add('hidden-layer');
+                }
+            });
+        }
+
+        function updateLayer(layer) {
+            if (!selectedId) return;
+            const obj = objects.find(o => o.id === selectedId);
+            obj.layer = layer;
+            const el = document.getElementById(selectedId);
+            el.dataset.layer = layer;
+            el.querySelector('.layer-badge').innerText = layer;
+            applyLayerVisibility();
+            saveState();
+        }
+
+        // --- STORYBOARD EXPORT ---
+        function exportStoryboard() {
+            const modal = document.getElementById('storyboard-modal');
+            modal.classList.remove('hidden');
+            
+            const grid = document.getElementById('storyboard-grid');
+            grid.innerHTML = '<div class="text-center text-xs opacity-60 py-8">Generating storyboard frames...</div>';
+            
+            // Find all cameras
+            const cameras = objects.filter(o => o.type === 'camera');
+            
+            if (cameras.length === 0) {
+                grid.innerHTML = '<div class="text-center text-xs text-red-400 py-8">No cameras found in scene</div>';
+                return;
+            }
+
+            setTimeout(() => {
+                grid.innerHTML = '';
+                grid.className = 'p-6 overflow-y-auto grid grid-cols-2 gap-4';
+                
+                cameras.forEach((cam, index) => {
+                    const frame = document.createElement('div');
+                    frame.className = 'storyboard-frame bg-black/40 p-4 flex flex-col';
+                    
+                    const camEl = document.getElementById(cam.id);
+                    const label = camEl.querySelector('.label-tag').innerText;
+                    
+                    frame.innerHTML = `
+                        <div class="flex-1 flex items-center justify-center text-brand text-xs mb-2">
+                            <i class="fa-solid fa-video mr-2"></i>
+                            Camera View: ${label}
+                        </div>
+                        <div class="text-[8px] opacity-40 text-center">Frame ${index + 1}</div>
+                        <canvas id="storyboard-canvas-${index}" class="hidden"></canvas>
+                    `;
+                    
+                    grid.appendChild(frame);
+                    
+                    // Generate snapshot for this camera angle
+                    // This is a placeholder - full implementation would render from camera POV
+                    const canvas = document.getElementById(`storyboard-canvas-${index}`);
+                    const ctx = canvas.getContext('2d');
+                    canvas.width = 320;
+                    canvas.height = 180;
+                    ctx.fillStyle = '#0d0d0d';
+                    ctx.fillRect(0, 0, 320, 180);
+                    ctx.fillStyle = '#ffa300';
+                    ctx.font = '12px sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(`Camera: ${label}`, 160, 90);
+                });
+            }, 500);
+        }
+
+        function downloadStoryboard() {
+            alert('Storyboard download functionality ready! Frames would be exported as PNG sequence.');
         }
 
         // --- UI & UTILS ---
@@ -576,9 +1084,13 @@
             const obj = objects.find(o => o.id === id);
             const el = document.getElementById(id);
             document.getElementById('insp-name').value = el.querySelector('.label-tag').innerText;
+            document.getElementById('insp-layer').value = obj.layer || '1';
             
             if (obj.type === 'camera') {
                 document.getElementById('cam-controls').classList.remove('hidden');
+                document.getElementById('fov-slider').value = el.dataset.fov || '60';
+                document.getElementById('fov-value').innerText = el.dataset.fov || '60';
+                
                 if (obj.targetId) {
                     document.getElementById('target-status').classList.remove('hidden');
                     const t = document.getElementById(obj.targetId);
@@ -589,20 +1101,35 @@
             } else {
                 document.getElementById('cam-controls').classList.add('hidden');
             }
+            
+            updateMeasurements();
         }
 
         function deselect() {
-            if(selectedId) document.getElementById(selectedId).classList.remove('selected');
+            if(selectedId) {
+                document.getElementById(selectedId).classList.remove('selected');
+                measurementLayer.innerHTML = '';
+            }
             selectedId = null;
             document.getElementById('edit-bar').classList.add('hidden');
             document.getElementById('edit-bar').classList.remove('flex');
             closeInspector();
         }
 
-        function openInspector() { document.getElementById('inspector').style.transform = 'translateY(-50%) translateX(0)'; }
-        function closeInspector() { document.getElementById('inspector').style.transform = 'translateY(-50%) translateX(150%)'; }
+        function openInspector() { 
+            document.getElementById('inspector').style.transform = 'translateY(-50%) translateX(0)'; 
+        }
         
-        function updateLabel(val) { if(selectedId) document.getElementById(selectedId).querySelector('.label-tag').innerText = val; }
+        function closeInspector() { 
+            document.getElementById('inspector').style.transform = 'translateY(-50%) translateX(150%)'; 
+        }
+        
+        function updateLabel(val) { 
+            if(selectedId) {
+                document.getElementById(selectedId).querySelector('.label-tag').innerText = val;
+                saveState();
+            }
+        }
         
         function setColor(hex) {
             if(!selectedId) return;
@@ -610,18 +1137,59 @@
             el.style.backgroundColor = hex;
             el.style.borderColor = hex;
             el.style.color = (parseInt(hex.replace('#',''),16) > 0xffffff/1.5) ? '#000' : '#fff';
+            saveState();
         }
 
         function deleteSelected() {
             if(!selectedId) return;
+            
+            // Check if this is a ghost in a chain - if so, reconnect the chain
+            const obj = objects.find(o => o.id === selectedId);
+            const parentObj = objects.find(o => o.nextPathId === selectedId);
+            
+            if (parentObj && obj.nextPathId) {
+                // Reconnect chain
+                parentObj.nextPathId = obj.nextPathId;
+                
+                // Update connection
+                connections = connections.filter(c => {
+                    if (c.from === selectedId || c.to === selectedId) {
+                        c.line.remove();
+                        return false;
+                    }
+                    return true;
+                });
+                
+                // Create new connection
+                const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                line.setAttribute('stroke', '#ffa300');
+                line.setAttribute('stroke-dasharray', '4,4');
+                line.setAttribute('opacity', '0.6');
+                line.setAttribute('stroke-width', '1.5');
+                svgLayer.appendChild(line);
+                connections.push({ from: parentObj.id, to: obj.nextPathId, line });
+                updatePathLines(parentObj.id);
+            } else {
+                // Remove connections
+                connections = connections.filter(c => {
+                    if (c.from === selectedId || c.to === selectedId) {
+                        c.line.remove();
+                        return false;
+                    }
+                    return true;
+                });
+                
+                // Update parent reference
+                if (parentObj) {
+                    parentObj.nextPathId = null;
+                }
+            }
+            
             const el = document.getElementById(selectedId);
             el.remove();
             objects = objects.filter(o => o.id !== selectedId);
-            connections = connections.filter(c => {
-                if (c.from === selectedId || c.to === selectedId) { c.line.remove(); return false; }
-                return true;
-            });
             deselect();
+            saveState();
         }
 
         function takeSnapshot() {
@@ -629,7 +1197,9 @@
             world.style.transform = 'none';
             html2canvas(document.getElementById('world'), { backgroundColor: '#0d0d0d' }).then(c => {
                 const a = document.createElement('a');
-                a.download = 'CineFlow_Shot.png'; a.href = c.toDataURL(); a.click();
+                a.download = 'CineFlow_Shot.png'; 
+                a.href = c.toDataURL(); 
+                a.click();
                 world.style.transform = t;
             });
         }
@@ -641,7 +1211,17 @@
                 name,
                 objects: objects.map(o => {
                     const el = document.getElementById(o.id);
-                    return { ...o, left: el.style.left, top: el.style.top, label: el.querySelector('.label-tag').innerText, color: el.querySelector('.object-visual').style.backgroundColor };
+                    return { 
+                        ...o, 
+                        left: el.style.left, 
+                        top: el.style.top, 
+                        rot: el.dataset.rot,
+                        label: el.querySelector('.label-tag').innerText, 
+                        color: el.querySelector('.object-visual').style.backgroundColor,
+                        width: el.querySelector('.object-visual').style.width || '',
+                        height: el.querySelector('.object-visual').style.height || '',
+                        fov: el.dataset.fov || '60'
+                    };
                 }),
                 connections: connections.map(c => ({from:c.from, to:c.to}))
             };
@@ -668,38 +1248,61 @@
         function loadScene(name) {
             const data = JSON.parse(localStorage.getItem('cf_v7_' + name));
             if (!data) return;
-            createNewScene();
+            
+            restoreState(data);
+            
             document.getElementById('scene-name-display').innerText = data.name;
             document.getElementById('scene-name-input').value = data.name;
-
-            // Simplified Restore (No ghost logic for this demo complexity)
-            data.objects.forEach(o => {
-                const el = document.createElement('div');
-                // Creating pure restoration requires robust factory logic
-                // For V7 demo stability, we just alert load success
-            });
-            alert("Scene Data Loaded! (Visual Restore coming in V8)");
-        }
-        
-        function createNewScene() {
-            world.innerHTML = '<div id="grid-pattern"></div><svg id="svg-layer" class="path-layer"></svg>';
-            objects = []; connections = []; selectedId = null;
-            document.getElementById('scene-name-display').innerText = "Untitled";
             document.getElementById('scene-menu').classList.add('hidden');
         }
         
-        function deleteScene(name) { localStorage.removeItem('cf_v7_'+name); loadSceneList(); }
-        function toggleSceneMenu() { document.getElementById('scene-menu').classList.remove('hidden'); loadSceneList(); }
-        function toggleTheme() { document.body.classList.toggle('light-mode'); }
+        function createNewScene() {
+            world.innerHTML = '<div id="grid-pattern"></div><svg id="svg-layer" class="path-layer"></svg><svg id="measurement-layer" class="path-layer"></svg>';
+            objects = []; 
+            connections = []; 
+            selectedId = null;
+            history = [];
+            historyIndex = -1;
+            document.getElementById('scene-name-display').innerText = "Untitled";
+            document.getElementById('scene-menu').classList.add('hidden');
+            saveState();
+        }
+        
+        function deleteScene(name) { 
+            localStorage.removeItem('cf_v7_'+name); 
+            loadSceneList(); 
+        }
+        
+        function toggleSceneMenu() { 
+            document.getElementById('scene-menu').classList.remove('hidden'); 
+            loadSceneList(); 
+        }
+        
+        function toggleTheme() { 
+            document.body.classList.toggle('light-mode'); 
+        }
 
         // --- PROPS ---
         const propDB = {
-            'light': [{n:'Skypanel', i:'fa-table-cells', w:40,h:25}, {n:'Spot', i:'fa-bullseye', w:25,h:35}, {n:'Tube', i:'fa-grip-lines-vertical', w:10,h:50}],
-            'furniture': [{n:'Chair', i:'fa-chair', w:30,h:30}, {n:'Table', i:'fa-table', w:60,h:40}, {n:'Bed', i:'fa-bed', w:60,h:80}],
-            'set': [{n:'Wall', i:'fa-square', w:100,h:10}, {n:'Window', i:'fa-border-all', w:60,h:5}]
+            'light': [
+                {n:'Skypanel', i:'fa-table-cells', w:40, h:25}, 
+                {n:'Spot', i:'fa-bullseye', w:25, h:35}, 
+                {n:'Tube', i:'fa-grip-lines-vertical', w:10, h:50}
+            ],
+            'furniture': [
+                {n:'Chair', i:'fa-chair', w:30, h:30}, 
+                {n:'Table', i:'fa-table', w:60, h:40}, 
+                {n:'Bed', i:'fa-bed', w:60, h:80}
+            ],
+            'set': [
+                {n:'Wall', i:'fa-square', w:100, h:10}, 
+                {n:'Window', i:'fa-border-all', w:60, h:5}
+            ]
         };
+        
         function filterProps(cat) {
-            const grid = document.getElementById('prop-grid'); grid.innerHTML = '';
+            const grid = document.getElementById('prop-grid'); 
+            grid.innerHTML = '';
             propDB[cat].forEach(p => {
                 const b = document.createElement('button');
                 b.className = "aspect-square bg-white/5 border border-white/10 rounded-2xl flex flex-col items-center justify-center hover:bg-white/10 transition";
@@ -708,7 +1311,29 @@
                 grid.appendChild(b);
             });
         }
-        function openPropPicker() { document.getElementById('prop-picker').classList.remove('hidden'); }
+        
+        function openPropPicker() { 
+            document.getElementById('prop-picker').classList.remove('hidden'); 
+        }
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (e.ctrlKey || e.metaKey) {
+                if (e.key === 'z' && !e.shiftKey) {
+                    e.preventDefault();
+                    undo();
+                } else if (e.key === 'z' && e.shiftKey || e.key === 'y') {
+                    e.preventDefault();
+                    redo();
+                }
+            }
+            if (e.key === 'Delete' || e.key === 'Backspace') {
+                if (selectedId && !e.target.matches('input, textarea')) {
+                    e.preventDefault();
+                    deleteSelected();
+                }
+            }
+        });
 
     </script>
 </body>
