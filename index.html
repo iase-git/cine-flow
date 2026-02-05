@@ -3,127 +3,411 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>CineFlow | Pro Blocking</title>
+    <title>CineFlow | Shot Designer Killer</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
     <style>
-        :root { --neon-blue: #00f3ff; --bg-dark: #121212; }
-        body { background-color: var(--bg-dark); margin: 0; overflow: hidden; touch-action: none; font-family: sans-serif; color: white; }
-        
-        /* Infinite Grid */
-        #canvas-container { width: 100vw; height: 100vh; position: relative; }
-        #grid {
-            position: absolute; width: 5000px; height: 5000px;
-            background-image: radial-gradient(circle, rgba(255,255,255,0.1) 1px, transparent 1px);
-            background-size: 50px 50px;
-            transform-origin: 0 0;
+        :root { 
+            --bg-dark: #121212; 
+            --neon-blue: #00f3ff; 
+            --neon-red: #ff0055; 
+            --glass: rgba(20, 20, 20, 0.6);
+            --border: rgba(255, 255, 255, 0.1);
         }
-
-        /* Camera & FOV */
-        .camera-wrapper { position: absolute; transform-origin: center; display: flex; flex-direction: column; align-items: center; cursor: pointer; transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
-        .fov-cone {
+        body { 
+            background-color: var(--bg-dark); 
+            margin: 0; overflow: hidden; touch-action: none; 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            color: white;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        
+        /* THE INFINITE GRID */
+        #viewport {
+            width: 100vw; height: 100vh;
+            cursor: grab;
+            overflow: hidden;
+            position: relative;
+        }
+        #world {
+            position: absolute;
+            top: 50%; left: 50%; /* Center the world */
             width: 0; height: 0;
-            border-left: 60px solid transparent; border-right: 60px solid transparent;
-            border-top: 200px solid rgba(0, 243, 255, 0.1);
-            position: absolute; top: -200px; pointer-events: none;
-            transform-origin: bottom center;
+            /* Grid Pattern */
+            background-image: 
+                radial-gradient(var(--border) 1px, transparent 1px);
+            background-size: 40px 40px;
+            /* Make background huge so it feels infinite */
+            box-shadow: 0 0 0 4000px var(--bg-dark); 
         }
-        .camera-icon {
-            width: 32px; height: 32px; background: var(--neon-blue); clip-path: polygon(25% 0%, 75% 0%, 100% 100%, 0% 100%);
-            box-shadow: 0 0 20px var(--neon-blue);
+        /* We fake the grid lines on a pseudo element to allow panning */
+        #grid-pattern {
+            position: absolute;
+            top: -5000px; left: -5000px;
+            width: 10000px; height: 10000px;
+            background-image: 
+                linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+            background-size: 50px 50px;
+            pointer-events: none;
+            z-index: -1;
         }
 
-        /* Glass Panel */
-        .glass { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.1); }
+        /* OBJECT STYLES */
+        .scene-object {
+            position: absolute;
+            transform-origin: center center;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            cursor: grab;
+            z-index: 10;
+        }
+        .scene-object:active { cursor: grabbing; scale: 1.05; transition: scale 0.1s; }
+
+        /* CAMERA SPECIFIC */
+        .fov-cone {
+            position: absolute; bottom: 50%; left: 50%;
+            transform-origin: bottom center;
+            transform: translateX(-50%);
+            width: 0; height: 0;
+            border-left: 100px solid transparent;
+            border-right: 100px solid transparent;
+            border-top: 300px solid rgba(0, 243, 255, 0.15);
+            pointer-events: none;
+        }
+        .cam-body {
+            width: 40px; height: 26px;
+            background: var(--neon-blue);
+            border-radius: 4px;
+            box-shadow: 0 0 15px rgba(0, 243, 255, 0.4);
+            position: relative;
+            z-index: 2;
+        }
+        .cam-lens {
+            position: absolute; top: -6px; left: 50%; transform: translateX(-50%);
+            width: 12px; height: 8px; background: white; border-radius: 2px;
+        }
+
+        /* ACTOR SPECIFIC */
+        .actor-body {
+            width: 40px; height: 40px;
+            background: var(--neon-red);
+            border-radius: 50%;
+            box-shadow: 0 0 15px rgba(255, 0, 85, 0.4);
+            position: relative;
+        }
+        .actor-nose {
+            position: absolute; top: -4px; left: 50%; transform: translateX(-50%);
+            width: 8px; height: 8px; background: white; border-radius: 50%;
+        }
         
-        /* Slider Styling */
-        input[type=range] { appearance: none; background: rgba(255,255,255,0.1); border-radius: 10px; height: 6px; }
-        input[type=range]::-webkit-slider-thumb { appearance: none; width: 18px; height: 18px; background: var(--neon-blue); border-radius: 50%; cursor: pointer; box-shadow: 0 0 10px var(--neon-blue); }
+        /* UI GLASS PANELS */
+        .glass-panel {
+            background: rgba(10,10,10,0.7);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--border);
+        }
+        
+        input[type=range] {
+            accent-color: var(--neon-blue);
+        }
     </style>
 </head>
 <body>
 
-    <div id="canvas-container">
-        <div id="grid">
-            <div id="camera-a" class="camera-wrapper" style="left: 2500px; top: 2500px;">
-                <div id="fov" class="fov-cone" style="transform: scaleX(1);"></div>
-                <div class="camera-icon"></div>
-                <div id="cam-label" class="mt-2 px-3 py-1 glass rounded-full text-[10px]">CAM A: 35mm</div>
+    <div id="viewport">
+        <div id="world">
+            <div id="grid-pattern"></div>
             </div>
-        </div>
     </div>
 
-    <div id="inspector" class="fixed right-6 top-1/2 -translate-y-1/2 w-64 p-6 glass rounded-3xl transition-all translate-x-[120%] shadow-2xl">
-        <h2 class="text-xs font-bold tracking-widest text-cyan-400 mb-6 uppercase">Shot Inspector</h2>
-        
-        <div class="mb-6">
-            <label class="block text-[10px] text-white/50 mb-2 uppercase">Lens Focal Length</label>
-            <div class="flex items-center gap-4">
-                <input type="range" id="lens-slider" min="18" max="150" value="35" class="w-full">
-                <span id="lens-value" class="text-sm font-mono w-10">35mm</span>
+    <div class="fixed top-0 left-0 w-full p-4 flex justify-between items-start pointer-events-none">
+        <div class="glass-panel px-4 py-2 rounded-full pointer-events-auto">
+            <h1 class="text-xs font-bold tracking-[0.2em] text-cyan-400">CINEFLOW <span class="text-white/30">BETA</span></h1>
+        </div>
+        <button class="glass-panel w-10 h-10 rounded-full flex items-center justify-center text-white/70 pointer-events-auto active:scale-90 transition">
+            <i class="fa-solid fa-bars"></i>
+        </button>
+    </div>
+
+    <div class="fixed bottom-8 left-1/2 -translate-x-1/2 glass-panel rounded-full p-2 flex gap-2 shadow-2xl z-50">
+        <button onclick="addActor()" class="flex flex-col items-center justify-center w-16 h-14 rounded-2xl hover:bg-white/5 active:bg-white/10 transition">
+            <div class="w-4 h-4 rounded-full bg-rose-500 mb-1 shadow-[0_0_8px_rgba(244,63,94,0.6)]"></div>
+            <span class="text-[9px] font-bold text-white/60">ACTOR</span>
+        </button>
+        <div class="w-px h-10 bg-white/10 my-auto"></div>
+        <button onclick="addCamera()" class="flex flex-col items-center justify-center w-16 h-14 rounded-2xl hover:bg-white/5 active:bg-white/10 transition">
+            <div class="w-5 h-3 rounded-sm bg-cyan-400 mb-1 shadow-[0_0_8px_rgba(34,211,238,0.6)]"></div>
+            <span class="text-[9px] font-bold text-cyan-400">CAMERA</span>
+        </button>
+        <div class="w-px h-10 bg-white/10 my-auto"></div>
+        <button class="flex flex-col items-center justify-center w-16 h-14 rounded-2xl hover:bg-white/5 active:bg-white/10 transition">
+            <div class="w-4 h-4 border border-amber-400 mb-1 shadow-[0_0_8px_rgba(251,191,36,0.4)]"></div>
+            <span class="text-[9px] font-bold text-white/60">PROP</span>
+        </button>
+    </div>
+
+    <div id="inspector" class="fixed right-4 top-1/2 -translate-y-1/2 w-64 glass-panel rounded-2xl p-5 translate-x-[120%] transition-transform duration-300 shadow-2xl z-50">
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-xs font-bold text-white/50 uppercase tracking-widest">Properties</h2>
+            <button onclick="closeInspector()" class="text-white/30 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+
+        <div id="cam-controls" class="hidden">
+            <div class="mb-5">
+                <div class="flex justify-between text-[10px] text-cyan-400 font-bold mb-2 uppercase">
+                    <span>Focal Length</span>
+                    <span id="lens-display">35mm</span>
+                </div>
+                <input type="range" id="lens-slider" min="14" max="135" value="35" class="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer">
+                <div class="flex justify-between text-[8px] text-white/30 mt-1 font-mono">
+                    <span>14mm</span>
+                    <span>50mm</span>
+                    <span>135mm</span>
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-2 mb-4">
+                <button class="py-2 bg-white/5 border border-white/10 rounded hover:bg-white/10 text-[9px]">DELETE</button>
+                <button class="py-2 bg-cyan-500/20 border border-cyan-500/50 text-cyan-400 rounded text-[9px]">DUPLICATE</button>
             </div>
         </div>
 
-        <div class="mb-6">
-            <label class="block text-[10px] text-white/50 mb-2 uppercase">Shot Type</label>
-            <div class="grid grid-cols-3 gap-2">
-                <button class="text-[9px] py-1 border border-white/10 rounded hover:bg-white/10">WIDE</button>
-                <button class="text-[9px] py-1 border border-white/10 rounded bg-cyan-500/20 text-cyan-400 border-cyan-400/50">MCU</button>
-                <button class="text-[9px] py-1 border border-white/10 rounded hover:bg-white/10">CU</button>
-            </div>
+        <div id="actor-controls" class="hidden">
+             <div class="text-center text-white/40 text-xs italic py-4">Select a color</div>
+             <div class="flex justify-center gap-3">
+                 <div class="w-6 h-6 rounded-full bg-rose-500 cursor-pointer ring-2 ring-white"></div>
+                 <div class="w-6 h-6 rounded-full bg-green-500 cursor-pointer opacity-50"></div>
+                 <div class="w-6 h-6 rounded-full bg-amber-500 cursor-pointer opacity-50"></div>
+             </div>
         </div>
-
-        <button onclick="closeInspector()" class="w-full py-2 bg-white/5 text-xs rounded-xl hover:bg-white/10 transition-colors">Close</button>
     </div>
 
     <script>
-        const camera = document.getElementById('camera-a');
-        const fov = document.getElementById('fov');
-        const inspector = document.getElementById('inspector');
-        const lensSlider = document.getElementById('lens-slider');
-        const lensValue = document.getElementById('lens-value');
-        const camLabel = document.getElementById('cam-label');
+        // --- CORE STATE ---
+        const world = document.getElementById('world');
+        const viewport = document.getElementById('viewport');
+        let objects = [];
+        let selectedId = null;
+        let idCounter = 0;
 
-        let isDragging = false, startX, startY;
+        // Viewport Navigation
+        let viewX = 0, viewY = 0, zoom = 1;
+        let isPanning = false;
 
-        // 1. Open Inspector on Camera Click
-        camera.onclick = (e) => {
-            e.stopPropagation();
-            inspector.style.transform = "translateY(-50%) translateX(0)";
-            camera.style.transform = "scale(1.2)";
+        // --- INIT ---
+        window.onload = () => {
+            // Add one camera to start
+            addCamera();
+            centerView();
         };
 
-        function closeInspector() {
-            inspector.style.transform = "translateY(-50%) translateX(120%)";
-            camera.style.transform = "scale(1)";
+        function centerView() {
+            // No massive offsets needed because world is centered by CSS
+            viewX = 0; viewY = 0; zoom = 1;
+            updateWorldTransform();
         }
 
-        // 2. Lens Logic (FOV Width calculation)
-        lensSlider.oninput = (e) => {
-            const mm = e.target.value;
-            lensValue.innerText = mm + "mm";
-            camLabel.innerText = "CAM A: " + mm + "mm";
+        // --- OBJECT FACTORY ---
+        function createObject(type) {
+            idCounter++;
+            const id = `obj-${idCounter}`;
+            const div = document.createElement('div');
+            div.id = id;
+            div.className = 'scene-object';
+            // Start slightly random so they don't stack perfectly
+            const randX = (Math.random() * 100) - 50;
+            const randY = (Math.random() * 100) - 50;
             
-            // Optical Formula: Narrower lens = Smaller FOV scale
-            // 35mm is our '1.0' scale. 18mm is wider, 85mm is narrower.
-            const fovScale = 35 / mm;
-            fov.style.transform = `scaleX(${fovScale})`;
-        };
+            div.style.left = `${randX}px`;
+            div.style.top = `${randY}px`;
+            
+            if (type === 'camera') {
+                div.innerHTML = `
+                    <div class="fov-cone" id="${id}-cone"></div>
+                    <div class="cam-lens"></div>
+                    <div class="cam-body"></div>
+                    <div class="mt-2 px-2 py-0.5 bg-black/50 border border-white/20 rounded text-[8px] text-white/80 whitespace-nowrap backdrop-blur-sm">CAM ${idCounter}</div>
+                `;
+                div.dataset.lens = 35;
+            } else if (type === 'actor') {
+                div.innerHTML = `
+                    <div class="actor-nose"></div>
+                    <div class="actor-body"></div>
+                    <div class="mt-2 text-[9px] font-bold text-white/80">Actor ${idCounter}</div>
+                `;
+            }
 
-        // 3. Drag Logic
-        camera.onpointerdown = (e) => {
-            isDragging = true;
-            startX = e.clientX - camera.offsetLeft;
-            startY = e.clientY - camera.offsetTop;
-            camera.setPointerCapture(e.pointerId);
+            div.dataset.type = type;
+            div.dataset.rotation = 0;
+            div.onpointerdown = (e) => startDrag(e, div);
+            
+            world.appendChild(div);
+            objects.push(div);
+            
+            // Auto Select
+            selectObject(div);
+        }
+
+        function addCamera() { createObject('camera'); }
+        function addActor() { createObject('actor'); }
+
+        // --- INTERACTION LOGIC ---
+        let dragItem = null;
+        let dragStartX, dragStartY;
+        let itemStartX, itemStartY;
+
+        function startDrag(e, item) {
+            e.stopPropagation(); // Stop panning
+            dragItem = item;
+            selectObject(item);
+            
+            dragStartX = e.clientX;
+            dragStartY = e.clientY;
+            itemStartX = parseFloat(item.style.left || 0);
+            itemStartY = parseFloat(item.style.top || 0);
+            
+            item.setPointerCapture(e.pointerId);
+        }
+
+        // --- PANNING LOGIC ---
+        viewport.onpointerdown = (e) => {
+            if (e.target.closest('.scene-object')) return;
+            isPanning = true;
+            dragStartX = e.clientX;
+            dragStartY = e.clientY;
+            viewport.style.cursor = 'grabbing';
         };
 
         window.onpointermove = (e) => {
-            if (!isDragging) return;
-            camera.style.left = `${e.clientX - startX}px`;
-            camera.style.top = `${e.clientY - startY}px`;
+            // 1. Object Dragging
+            if (dragItem) {
+                // Calculate delta considering zoom
+                const dx = (e.clientX - dragStartX) / zoom;
+                const dy = (e.clientY - dragStartY) / zoom;
+                
+                const newX = itemStartX + dx;
+                const newY = itemStartY + dy;
+                
+                dragItem.style.left = `${newX}px`;
+                dragItem.style.top = `${newY}px`;
+
+                // AUTO LOOK LOGIC (The "Magnetic" Feature)
+                if (dragItem.dataset.type === 'camera') {
+                    autoLookAtActor(dragItem, newX, newY);
+                }
+                return;
+            }
+
+            // 2. World Panning
+            if (isPanning) {
+                viewX += e.clientX - dragStartX;
+                viewY += e.clientY - dragStartY;
+                dragStartX = e.clientX;
+                dragStartY = e.clientY;
+                updateWorldTransform();
+            }
         };
 
-        window.onpointerup = () => isDragging = false;
+        window.onpointerup = () => {
+            dragItem = null;
+            isPanning = false;
+            viewport.style.cursor = 'grab';
+        };
+
+        // --- MATH & UTILS ---
+        function updateWorldTransform() {
+            world.style.transform = `translate(-50%, -50%) translate(${viewX}px, ${viewY}px) scale(${zoom})`;
+            // Move grid pattern opposite to create infinite illusion
+            document.getElementById('grid-pattern').style.backgroundPosition = `${-viewX}px ${-viewY}px`;
+        }
+
+        // ZOOM (Scroll Wheel)
+        viewport.onwheel = (e) => {
+            e.preventDefault();
+            const delta = e.deltaY > 0 ? 0.9 : 1.1;
+            zoom = Math.min(Math.max(0.2, zoom * delta), 4);
+            updateWorldTransform();
+        };
+
+        // AUTO LOOK ALGORITHM
+        function autoLookAtActor(camera, camX, camY) {
+            let closestActor = null;
+            let minDist = 600; // Activation range
+
+            objects.forEach(obj => {
+                if (obj.dataset.type === 'actor') {
+                    const actX = parseFloat(obj.style.left);
+                    const actY = parseFloat(obj.style.top);
+                    const dist = Math.hypot(actX - camX, actY - camY);
+                    
+                    if (dist < minDist) {
+                        minDist = dist;
+                        closestActor = obj;
+                    }
+                }
+            });
+
+            if (closestActor) {
+                const actX = parseFloat(closestActor.style.left);
+                const actY = parseFloat(closestActor.style.top);
+                // Math.atan2 returns angle in radians
+                const angleRad = Math.atan2(actY - camY, actX - camX);
+                const angleDeg = angleRad * (180 / Math.PI) + 90; // +90 to align with CSS orientation
+                
+                camera.style.transform = `rotate(${angleDeg}deg)`;
+                camera.dataset.rotation = angleDeg;
+                
+                // Haptic feedback visual cue (could add border color change here)
+            }
+        }
+
+        // --- INSPECTOR LOGIC ---
+        const inspector = document.getElementById('inspector');
+        const lensSlider = document.getElementById('lens-slider');
+        const lensDisplay = document.getElementById('lens-display');
+
+        function selectObject(item) {
+            selectedId = item.id;
+            
+            // Show Inspector
+            inspector.style.transform = "translateY(-50%) translateX(0)";
+
+            // Toggle Controls
+            if (item.dataset.type === 'camera') {
+                document.getElementById('cam-controls').classList.remove('hidden');
+                document.getElementById('actor-controls').classList.add('hidden');
+                
+                // Sync Slider
+                lensSlider.value = item.dataset.lens;
+                lensDisplay.innerText = item.dataset.lens + "mm";
+            } else {
+                document.getElementById('cam-controls').classList.add('hidden');
+                document.getElementById('actor-controls').classList.remove('hidden');
+            }
+        }
+
+        function closeInspector() {
+            inspector.style.transform = "translateY(-50%) translateX(120%)";
+            selectedId = null;
+        }
+
+        // Live Lens Update
+        lensSlider.oninput = (e) => {
+            if (!selectedId) return;
+            const item = document.getElementById(selectedId);
+            if (!item || item.dataset.type !== 'camera') return;
+
+            const val = e.target.value;
+            item.dataset.lens = val;
+            lensDisplay.innerText = val + "mm";
+
+            // Update Cone Scale
+            const cone = document.getElementById(`${selectedId}-cone`);
+            // 35mm = scale 1. 18mm = scale 2.
+            const scale = 35 / val; 
+            cone.style.transform = `translateX(-50%) scaleX(${scale})`;
+        };
 
     </script>
 </body>
