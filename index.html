@@ -3,115 +3,130 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>CineFlow | Shot Designer Killer</title>
+    <title>CineFlow | Director's Cut</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
     <style>
         :root { 
-            --bg-dark: #121212; 
+            --bg-color: #121212; 
+            --grid-color: rgba(255,255,255,0.05);
+            --text-color: white;
+            --glass-bg: rgba(18, 18, 18, 0.85);
+            --glass-border: rgba(255, 255, 255, 0.15);
             --neon-blue: #00f3ff; 
             --neon-red: #ff0055; 
-            --glass: rgba(20, 20, 20, 0.6);
-            --border: rgba(255, 255, 255, 0.1);
-        }
-        body { 
-            background-color: var(--bg-dark); 
-            margin: 0; overflow: hidden; touch-action: none; 
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            color: white;
-            user-select: none;
-            -webkit-user-select: none;
-        }
-        
-        /* THE INFINITE GRID */
-        #viewport {
-            width: 100vw; height: 100vh;
-            cursor: grab;
-            overflow: hidden;
-            position: relative;
-        }
-        #world {
-            position: absolute;
-            top: 50%; left: 50%; /* Center the world */
-            width: 0; height: 0;
-            /* Grid Pattern */
-            background-image: 
-                radial-gradient(var(--border) 1px, transparent 1px);
-            background-size: 40px 40px;
-            /* Make background huge so it feels infinite */
-            box-shadow: 0 0 0 4000px var(--bg-dark); 
-        }
-        /* We fake the grid lines on a pseudo element to allow panning */
-        #grid-pattern {
-            position: absolute;
-            top: -5000px; left: -5000px;
-            width: 10000px; height: 10000px;
-            background-image: 
-                linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
-            background-size: 50px 50px;
-            pointer-events: none;
-            z-index: -1;
+            --neon-amber: #fbbf24;
+            --neon-green: #10b981;
+            --neon-purple: #a855f7;
         }
 
-        /* OBJECT STYLES */
+        body.light-mode {
+            --bg-color: #f3f4f6;
+            --grid-color: rgba(0,0,0,0.05);
+            --text-color: #1f2937;
+            --glass-bg: rgba(255,255,255,0.9);
+            --glass-border: rgba(0, 0, 0, 0.1);
+        }
+
+        body { 
+            background-color: var(--bg-color); 
+            color: var(--text-color);
+            margin: 0; overflow: hidden; touch-action: none; 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            user-select: none; -webkit-user-select: none;
+            transition: background-color 0.3s;
+        }
+        
+        /* INFINITE GRID */
+        #viewport { width: 100vw; height: 100vh; cursor: grab; overflow: hidden; position: relative; }
+        #world {
+            position: absolute; top: 50%; left: 50%; width: 0; height: 0;
+        }
+        #grid-pattern {
+            position: absolute; top: -5000px; left: -5000px; width: 10000px; height: 10000px;
+            background-image: 
+                linear-gradient(var(--grid-color) 1px, transparent 1px),
+                linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
+            background-size: 50px 50px;
+            pointer-events: none; z-index: -1;
+        }
+
+        /* OBJECTS */
         .scene-object {
-            position: absolute;
-            transform-origin: center center;
+            position: absolute; transform-origin: center center;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
-            cursor: grab;
-            z-index: 10;
+            cursor: grab; z-index: 10;
         }
         .scene-object:active { cursor: grabbing; scale: 1.05; transition: scale 0.1s; }
 
-        /* CAMERA SPECIFIC */
+        /* CAMERA */
         .fov-cone {
-            position: absolute; bottom: 50%; left: 50%;
-            transform-origin: bottom center;
-            transform: translateX(-50%);
+            position: absolute; bottom: 50%; left: 50%; transform: translateX(-50%);
             width: 0; height: 0;
-            border-left: 100px solid transparent;
-            border-right: 100px solid transparent;
+            border-left: 100px solid transparent; border-right: 100px solid transparent;
             border-top: 300px solid rgba(0, 243, 255, 0.15);
-            pointer-events: none;
+            pointer-events: none; transform-origin: bottom center;
         }
         .cam-body {
-            width: 40px; height: 26px;
-            background: var(--neon-blue);
-            border-radius: 4px;
-            box-shadow: 0 0 15px rgba(0, 243, 255, 0.4);
-            position: relative;
-            z-index: 2;
+            width: 40px; height: 26px; background: var(--neon-blue); border-radius: 4px;
+            box-shadow: 0 0 15px rgba(0, 243, 255, 0.4); position: relative; z-index: 2;
         }
         .cam-lens {
             position: absolute; top: -6px; left: 50%; transform: translateX(-50%);
             width: 12px; height: 8px; background: white; border-radius: 2px;
         }
+        
+        /* SMART LABEL (Billboard Effect) */
+        .smart-label {
+            position: absolute;
+            top: 45px; /* Push it below the object */
+            padding: 4px 8px;
+            background: var(--glass-bg); border: 1px solid var(--glass-border);
+            backdrop-filter: blur(8px); border-radius: 8px;
+            font-size: 10px; font-weight: 700; white-space: nowrap;
+            color: var(--text-color);
+            display: flex; gap: 4px; align-items: center;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            z-index: 100;
+            pointer-events: none;
+            /* Ensure it doesn't wrap */
+            max-width: 150px; overflow: hidden; text-overflow: ellipsis;
+        }
 
-        /* ACTOR SPECIFIC */
+        /* ACTOR */
         .actor-body {
-            width: 40px; height: 40px;
-            background: var(--neon-red);
-            border-radius: 50%;
-            box-shadow: 0 0 15px rgba(255, 0, 85, 0.4);
-            position: relative;
+            width: 40px; height: 40px; background: var(--neon-red); border-radius: 50%;
+            box-shadow: 0 0 15px rgba(255, 0, 85, 0.4); position: relative; transition: background 0.2s;
         }
         .actor-nose {
             position: absolute; top: -4px; left: 50%; transform: translateX(-50%);
             width: 8px; height: 8px; background: white; border-radius: 50%;
         }
+
+        /* PROP */
+        .prop-body {
+            display: flex; align-items: center; justify-content: center;
+            color: white; font-size: 20px;
+            background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
+        }
+
+        /* GHOST OBJECTS (Movement Targets) */
+        .ghost { opacity: 0.4; filter: grayscale(100%); border: 1px dashed white; }
+
+        /* MOVEMENT PATHS */
+        svg.path-layer {
+            position: absolute; top: -5000px; left: -5000px; width: 10000px; height: 10000px;
+            pointer-events: none; z-index: 0; overflow: visible;
+        }
         
         /* UI GLASS PANELS */
         .glass-panel {
-            background: rgba(10,10,10,0.7);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border: 1px solid var(--border);
+            background: var(--glass-bg); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border); color: var(--text-color);
         }
         
-        input[type=range] {
-            accent-color: var(--neon-blue);
-        }
+        /* SCROLLBARS */
+        .hide-scroll::-webkit-scrollbar { display: none; }
     </style>
 </head>
 <body>
@@ -119,187 +134,298 @@
     <div id="viewport">
         <div id="world">
             <div id="grid-pattern"></div>
+            <svg id="svg-layer" class="path-layer"></svg>
             </div>
     </div>
 
-    <div class="fixed top-0 left-0 w-full p-4 flex justify-between items-start pointer-events-none">
-        <div class="glass-panel px-4 py-2 rounded-full pointer-events-auto">
-            <h1 class="text-xs font-bold tracking-[0.2em] text-cyan-400">CINEFLOW <span class="text-white/30">BETA</span></h1>
+    <div class="fixed top-0 left-0 w-full p-4 flex justify-between items-start pointer-events-none z-50">
+        <div class="glass-panel px-4 py-2 rounded-full pointer-events-auto shadow-lg flex items-center gap-3">
+            <h1 class="text-xs font-bold tracking-[0.2em] uppercase">CineFlow</h1>
+            <div class="h-3 w-px bg-white/20"></div>
+            <button onclick="playScene()" class="flex items-center gap-2 text-[10px] font-bold text-green-400 hover:text-green-300 transition">
+                <i class="fa-solid fa-clapperboard"></i> ACTION!
+            </button>
         </div>
-        <button class="glass-panel w-10 h-10 rounded-full flex items-center justify-center text-white/70 pointer-events-auto active:scale-90 transition">
-            <i class="fa-solid fa-bars"></i>
+        <button onclick="toggleTheme()" class="glass-panel w-10 h-10 rounded-full flex items-center justify-center pointer-events-auto active:scale-90 transition shadow-lg">
+            <i class="fa-solid fa-moon" id="theme-icon"></i>
         </button>
     </div>
 
     <div class="fixed bottom-8 left-1/2 -translate-x-1/2 glass-panel rounded-full p-2 flex gap-2 shadow-2xl z-50">
         <button onclick="addActor()" class="flex flex-col items-center justify-center w-16 h-14 rounded-2xl hover:bg-white/5 active:bg-white/10 transition">
-            <div class="w-4 h-4 rounded-full bg-rose-500 mb-1 shadow-[0_0_8px_rgba(244,63,94,0.6)]"></div>
-            <span class="text-[9px] font-bold text-white/60">ACTOR</span>
+            <div class="w-4 h-4 rounded-full bg-rose-500 mb-1 shadow-sm"></div>
+            <span class="text-[9px] font-bold opacity-70">ACTOR</span>
         </button>
         <div class="w-px h-10 bg-white/10 my-auto"></div>
         <button onclick="addCamera()" class="flex flex-col items-center justify-center w-16 h-14 rounded-2xl hover:bg-white/5 active:bg-white/10 transition">
-            <div class="w-5 h-3 rounded-sm bg-cyan-400 mb-1 shadow-[0_0_8px_rgba(34,211,238,0.6)]"></div>
-            <span class="text-[9px] font-bold text-cyan-400">CAMERA</span>
+            <div class="w-5 h-3 rounded-sm bg-cyan-400 mb-1 shadow-sm"></div>
+            <span class="text-[9px] font-bold opacity-70">CAMERA</span>
         </button>
         <div class="w-px h-10 bg-white/10 my-auto"></div>
-        <button class="flex flex-col items-center justify-center w-16 h-14 rounded-2xl hover:bg-white/5 active:bg-white/10 transition">
-            <div class="w-4 h-4 border border-amber-400 mb-1 shadow-[0_0_8px_rgba(251,191,36,0.4)]"></div>
-            <span class="text-[9px] font-bold text-white/60">PROP</span>
+        <button onclick="openPropPicker()" class="flex flex-col items-center justify-center w-16 h-14 rounded-2xl hover:bg-white/5 active:bg-white/10 transition">
+            <div class="w-4 h-4 border border-amber-400 mb-1 shadow-sm"></div>
+            <span class="text-[9px] font-bold opacity-70">PROP</span>
         </button>
     </div>
 
-    <div id="inspector" class="fixed right-4 top-1/2 -translate-y-1/2 w-64 glass-panel rounded-2xl p-5 translate-x-[120%] transition-transform duration-300 shadow-2xl z-50">
+    <div id="prop-picker" class="fixed inset-0 bg-black/60 z-[60] hidden flex items-center justify-center backdrop-blur-sm transition-opacity" onclick="closePropPicker(event)">
+        <div class="glass-panel w-96 max-h-[80vh] rounded-3xl overflow-hidden flex flex-col shadow-2xl animate-[fadeIn_0.2s]">
+            <div class="p-5 border-b border-white/10 bg-white/5">
+                <h3 class="text-xs font-bold uppercase tracking-widest mb-2 opacity-70">Prop Warehouse</h3>
+                <div class="flex gap-2">
+                    <button onclick="filterProps('all')" class="px-3 py-1 rounded-full bg-cyan-500/20 text-cyan-400 text-[10px] font-bold border border-cyan-500/30">ALL</button>
+                    <button onclick="filterProps('furniture')" class="px-3 py-1 rounded-full bg-white/5 hover:bg-white/10 text-[10px] font-bold">FURNITURE</button>
+                    <button onclick="filterProps('vehicle')" class="px-3 py-1 rounded-full bg-white/5 hover:bg-white/10 text-[10px] font-bold">VEHICLES</button>
+                </div>
+            </div>
+            
+            <div id="prop-grid" class="p-5 overflow-y-auto grid grid-cols-4 gap-3 hide-scroll h-full">
+                </div>
+        </div>
+    </div>
+
+    <div id="inspector" class="fixed right-4 top-1/2 -translate-y-1/2 w-72 glass-panel rounded-3xl p-6 translate-x-[120%] transition-transform duration-300 shadow-2xl z-50">
         <div class="flex justify-between items-center mb-6">
-            <h2 class="text-xs font-bold text-white/50 uppercase tracking-widest">Properties</h2>
-            <button onclick="closeInspector()" class="text-white/30 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+            <h2 class="text-xs font-bold opacity-50 uppercase tracking-widest">Properties</h2>
+            <button onclick="closeInspector()" class="opacity-50 hover:opacity-100"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+
+        <div class="mb-5">
+            <label class="block text-[9px] font-bold uppercase opacity-50 mb-2">Label Name</label>
+            <input type="text" id="name-input" class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-cyan-400 transition" placeholder="Object Name">
         </div>
 
         <div id="cam-controls" class="hidden">
-            <div class="mb-5">
-                <div class="flex justify-between text-[10px] text-cyan-400 font-bold mb-2 uppercase">
+            <div class="mb-6">
+                <div class="flex justify-between text-[10px] font-bold mb-2 uppercase text-cyan-400">
                     <span>Focal Length</span>
                     <span id="lens-display">35mm</span>
                 </div>
-                <input type="range" id="lens-slider" min="14" max="135" value="35" class="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer">
-                <div class="flex justify-between text-[8px] text-white/30 mt-1 font-mono">
-                    <span>14mm</span>
-                    <span>50mm</span>
-                    <span>135mm</span>
-                </div>
-            </div>
-            <div class="grid grid-cols-2 gap-2 mb-4">
-                <button class="py-2 bg-white/5 border border-white/10 rounded hover:bg-white/10 text-[9px]">DELETE</button>
-                <button class="py-2 bg-cyan-500/20 border border-cyan-500/50 text-cyan-400 rounded text-[9px]">DUPLICATE</button>
+                <input type="range" id="lens-slider" min="14" max="135" value="35" class="w-full h-1 bg-white/20 rounded-lg appearance-none cursor-pointer">
             </div>
         </div>
 
-        <div id="actor-controls" class="hidden">
-             <div class="text-center text-white/40 text-xs italic py-4">Select a color</div>
-             <div class="flex justify-center gap-3">
-                 <div class="w-6 h-6 rounded-full bg-rose-500 cursor-pointer ring-2 ring-white"></div>
-                 <div class="w-6 h-6 rounded-full bg-green-500 cursor-pointer opacity-50"></div>
-                 <div class="w-6 h-6 rounded-full bg-amber-500 cursor-pointer opacity-50"></div>
+        <div id="color-controls" class="mb-6">
+             <p class="text-[9px] font-bold mb-3 opacity-50 uppercase">Appearance</p>
+             <div class="flex gap-2 overflow-x-auto hide-scroll pb-2">
+                 <button onclick="changeColor('#ff0055')" class="w-6 h-6 shrink-0 rounded-full bg-[#ff0055] ring-1 ring-white/20"></button>
+                 <button onclick="changeColor('#00f3ff')" class="w-6 h-6 shrink-0 rounded-full bg-[#00f3ff] ring-1 ring-white/20"></button>
+                 <button onclick="changeColor('#fbbf24')" class="w-6 h-6 shrink-0 rounded-full bg-[#fbbf24] ring-1 ring-white/20"></button>
+                 <button onclick="changeColor('#10b981')" class="w-6 h-6 shrink-0 rounded-full bg-[#10b981] ring-1 ring-white/20"></button>
+                 <button onclick="changeColor('#a855f7')" class="w-6 h-6 shrink-0 rounded-full bg-[#a855f7] ring-1 ring-white/20"></button>
+                 <button onclick="changeColor('#f43f5e')" class="w-6 h-6 shrink-0 rounded-full bg-[#f43f5e] ring-1 ring-white/20"></button>
+                 <button onclick="changeColor('#ffffff')" class="w-6 h-6 shrink-0 rounded-full bg-[#ffffff] ring-1 ring-white/20"></button>
+                 <button onclick="changeColor('#64748b')" class="w-6 h-6 shrink-0 rounded-full bg-[#64748b] ring-1 ring-white/20"></button>
              </div>
+        </div>
+
+        <div class="border-t border-white/10 pt-6">
+            <button onclick="addMovement()" class="w-full py-3 mb-3 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 flex items-center justify-center gap-2 transition group">
+                <i class="fa-solid fa-person-walking-arrow-right text-xs group-hover:text-cyan-400"></i>
+                <span class="text-[10px] font-bold">ADD MOVEMENT</span>
+            </button>
+            <button onclick="deleteSelected()" class="w-full py-3 bg-red-500/10 border border-red-500/30 text-red-400 rounded-xl hover:bg-red-500/20 text-[10px] font-bold transition">
+                DELETE OBJECT
+            </button>
         </div>
     </div>
 
     <script>
-        // --- CORE STATE ---
+        // --- DATA & STATE ---
         const world = document.getElementById('world');
         const viewport = document.getElementById('viewport');
+        const svgLayer = document.getElementById('svg-layer');
+        
         let objects = [];
+        let connections = []; 
         let selectedId = null;
-        let idCounter = 0;
-
-        // Viewport Navigation
+        
+        // Smart ID Management
+        // We no longer use simple counters. We calculate the next available label.
+        
         let viewX = 0, viewY = 0, zoom = 1;
         let isPanning = false;
 
+        // --- PROP DATABASE (The Warehouse) ---
+        const propLibrary = [
+            { id: 'chair', name: 'Chair', cat: 'furniture', icon: 'fa-chair', w: 30, h: 30, shape: 'rect' },
+            { id: 'couch', name: 'Couch', cat: 'furniture', icon: 'fa-couch', w: 80, h: 35, shape: 'rect' },
+            { id: 'bed', name: 'Bed', cat: 'furniture', icon: 'fa-bed', w: 70, h: 90, shape: 'rect' },
+            { id: 'table', name: 'Table', cat: 'furniture', icon: 'fa-table', w: 80, h: 50, shape: 'rect' },
+            { id: 'toilet', name: 'Toilet', cat: 'furniture', icon: 'fa-toilet', w: 30, h: 40, shape: 'rect' },
+            { id: 'car', name: 'Car', cat: 'vehicle', icon: 'fa-car-side', w: 120, h: 60, shape: 'rect' },
+            { id: 'truck', name: 'Truck', cat: 'vehicle', icon: 'fa-truck', w: 160, h: 70, shape: 'rect' },
+            { id: 'bus', name: 'Bus', cat: 'vehicle', icon: 'fa-bus', w: 200, h: 70, shape: 'rect' },
+            { id: 'bike', name: 'Bike', cat: 'vehicle', icon: 'fa-bicycle', w: 50, h: 20, shape: 'rect' },
+            { id: 'cam-light', name: 'Light', cat: 'lights', icon: 'fa-lightbulb', w: 20, h: 20, shape: 'circle' },
+            { id: 'tree', name: 'Tree', cat: 'set', icon: 'fa-tree', w: 50, h: 50, shape: 'circle' },
+            { id: 'box', name: 'Box', cat: 'set', icon: 'fa-box', w: 30, h: 30, shape: 'rect' },
+        ];
+
         // --- INIT ---
         window.onload = () => {
-            // Add one camera to start
-            addCamera();
+            renderPropGrid();
+            addCamera(); 
             centerView();
         };
 
-        function centerView() {
-            // No massive offsets needed because world is centered by CSS
-            viewX = 0; viewY = 0; zoom = 1;
-            updateWorldTransform();
+        function centerView() { viewX = 0; viewY = 0; zoom = 1; updateWorldTransform(); }
+
+        // --- SMART LABEL LOGIC ---
+        function getNextLabel(type) {
+            // Find all existing labels of this type
+            const existing = objects
+                .filter(o => o.dataset.type === type && !o.classList.contains('ghost'))
+                .map(o => o.dataset.label);
+            
+            if (type === 'camera') {
+                // Generate A, B, C... check which is missing
+                const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+                for (let char of alphabet) {
+                    const label = `CAM ${char}`;
+                    if (!existing.includes(label)) return label;
+                }
+            } else if (type === 'actor') {
+                // Generate 1, 2, 3...
+                let i = 1;
+                while (true) {
+                    const label = `Actor ${i}`;
+                    if (!existing.includes(label)) return label;
+                    i++;
+                }
+            }
+            return "Object";
         }
 
         // --- OBJECT FACTORY ---
-        function createObject(type) {
-            idCounter++;
-            const id = `obj-${idCounter}`;
+        function createObject(type, propData = null) {
             const div = document.createElement('div');
+            const id = `obj-${Date.now()}-${Math.floor(Math.random()*1000)}`;
             div.id = id;
             div.className = 'scene-object';
-            // Start slightly random so they don't stack perfectly
-            const randX = (Math.random() * 100) - 50;
-            const randY = (Math.random() * 100) - 50;
+            div.dataset.type = type;
+
+            let label = "";
             
-            div.style.left = `${randX}px`;
-            div.style.top = `${randY}px`;
+            if (type === 'prop' && propData) {
+                label = propData.name;
+            } else {
+                label = getNextLabel(type);
+            }
             
+            div.dataset.label = label;
+            
+            // Random scatter
+            div.style.left = `${(Math.random() * 100) - 50}px`;
+            div.style.top = `${(Math.random() * 100) - 50}px`;
+
             if (type === 'camera') {
                 div.innerHTML = `
                     <div class="fov-cone" id="${id}-cone"></div>
                     <div class="cam-lens"></div>
                     <div class="cam-body"></div>
-                    <div class="mt-2 px-2 py-0.5 bg-black/50 border border-white/20 rounded text-[8px] text-white/80 whitespace-nowrap backdrop-blur-sm">CAM ${idCounter}</div>
+                    <div class="smart-label">
+                        <span class="label-text">${label}</span>
+                        <span class="opacity-30">|</span>
+                        <span id="${id}-focal" class="text-cyan-400">35mm</span>
+                    </div>
                 `;
                 div.dataset.lens = 35;
-            } else if (type === 'actor') {
+            } 
+            else if (type === 'actor') {
                 div.innerHTML = `
                     <div class="actor-nose"></div>
                     <div class="actor-body"></div>
-                    <div class="mt-2 text-[9px] font-bold text-white/80">Actor ${idCounter}</div>
+                    <div class="smart-label label-text">${label}</div>
+                `;
+            }
+            else if (type === 'prop') {
+                const borderRadius = propData.shape === 'circle' ? '50%' : '6px';
+                div.innerHTML = `
+                    <div class="prop-body" style="width:${propData.w}px; height:${propData.h}px; border-radius:${borderRadius}">
+                        <i class="fa-solid ${propData.icon}"></i>
+                    </div>
+                    <div class="smart-label label-text">${label}</div>
                 `;
             }
 
-            div.dataset.type = type;
-            div.dataset.rotation = 0;
             div.onpointerdown = (e) => startDrag(e, div);
-            
             world.appendChild(div);
             objects.push(div);
-            
-            // Auto Select
             selectObject(div);
         }
 
         function addCamera() { createObject('camera'); }
         function addActor() { createObject('actor'); }
 
+        // --- PROP WAREHOUSE LOGIC ---
+        function renderPropGrid(filter = 'all') {
+            const grid = document.getElementById('prop-grid');
+            grid.innerHTML = '';
+            
+            const filtered = filter === 'all' ? propLibrary : propLibrary.filter(p => p.cat === filter);
+            
+            filtered.forEach(p => {
+                const btn = document.createElement('button');
+                btn.className = "aspect-square bg-white/5 rounded-xl hover:bg-white/10 flex flex-col items-center justify-center gap-2 border border-white/5 transition hover:scale-105";
+                btn.onclick = () => { createObject('prop', p); closePropPicker(); };
+                btn.innerHTML = `<i class="fa-solid ${p.icon} text-xl text-amber-400"></i><span class="text-[9px] uppercase tracking-wide opacity-70">${p.name}</span>`;
+                grid.appendChild(btn);
+            });
+        }
+        
+        function openPropPicker() { document.getElementById('prop-picker').classList.remove('hidden'); }
+        function closePropPicker(e) { 
+            if(!e || e.target.id === 'prop-picker' || !e.target.id) document.getElementById('prop-picker').classList.add('hidden'); 
+        }
+        function filterProps(cat) { renderPropGrid(cat); }
+
         // --- INTERACTION LOGIC ---
         let dragItem = null;
-        let dragStartX, dragStartY;
-        let itemStartX, itemStartY;
+        let dragStartX, dragStartY, itemStartX, itemStartY;
 
         function startDrag(e, item) {
-            e.stopPropagation(); // Stop panning
+            e.stopPropagation();
             dragItem = item;
             selectObject(item);
-            
             dragStartX = e.clientX;
             dragStartY = e.clientY;
             itemStartX = parseFloat(item.style.left || 0);
             itemStartY = parseFloat(item.style.top || 0);
-            
             item.setPointerCapture(e.pointerId);
         }
 
-        // --- PANNING LOGIC ---
         viewport.onpointerdown = (e) => {
             if (e.target.closest('.scene-object')) return;
             isPanning = true;
             dragStartX = e.clientX;
             dragStartY = e.clientY;
             viewport.style.cursor = 'grabbing';
+            closeInspector();
         };
 
         window.onpointermove = (e) => {
-            // 1. Object Dragging
             if (dragItem) {
-                // Calculate delta considering zoom
                 const dx = (e.clientX - dragStartX) / zoom;
                 const dy = (e.clientY - dragStartY) / zoom;
-                
                 const newX = itemStartX + dx;
                 const newY = itemStartY + dy;
                 
                 dragItem.style.left = `${newX}px`;
                 dragItem.style.top = `${newY}px`;
 
-                // AUTO LOOK LOGIC (The "Magnetic" Feature)
-                if (dragItem.dataset.type === 'camera') {
-                    autoLookAtActor(dragItem, newX, newY);
-                }
+                // Smart Features
+                if (dragItem.dataset.type === 'camera') autoLookAtActor(dragItem, newX, newY);
+                
+                // If this is a ghost, update the dashed line
+                if (dragItem.classList.contains('ghost')) updateGhostLine(dragItem);
+                
+                // If this is a parent with a ghost, update line too
+                updateParentConnections(dragItem.id);
+                
                 return;
             }
 
-            // 2. World Panning
             if (isPanning) {
                 viewX += e.clientX - dragStartX;
                 viewY += e.clientY - dragStartY;
@@ -309,20 +435,13 @@
             }
         };
 
-        window.onpointerup = () => {
-            dragItem = null;
-            isPanning = false;
-            viewport.style.cursor = 'grab';
-        };
+        window.onpointerup = () => { dragItem = null; isPanning = false; viewport.style.cursor = 'grab'; };
 
-        // --- MATH & UTILS ---
         function updateWorldTransform() {
             world.style.transform = `translate(-50%, -50%) translate(${viewX}px, ${viewY}px) scale(${zoom})`;
-            // Move grid pattern opposite to create infinite illusion
             document.getElementById('grid-pattern').style.backgroundPosition = `${-viewX}px ${-viewY}px`;
         }
 
-        // ZOOM (Scroll Wheel)
         viewport.onwheel = (e) => {
             e.preventDefault();
             const delta = e.deltaY > 0 ? 0.9 : 1.1;
@@ -330,60 +449,136 @@
             updateWorldTransform();
         };
 
-        // AUTO LOOK ALGORITHM
+        // --- SMART ROTATION & LABEL FIX ---
         function autoLookAtActor(camera, camX, camY) {
-            let closestActor = null;
-            let minDist = 600; // Activation range
-
+            let closest = null, minDist = 800;
             objects.forEach(obj => {
-                if (obj.dataset.type === 'actor') {
-                    const actX = parseFloat(obj.style.left);
-                    const actY = parseFloat(obj.style.top);
-                    const dist = Math.hypot(actX - camX, actY - camY);
-                    
-                    if (dist < minDist) {
-                        minDist = dist;
-                        closestActor = obj;
-                    }
+                if (obj.dataset.type === 'actor' && !obj.classList.contains('ghost')) {
+                    const dist = Math.hypot(parseFloat(obj.style.left) - camX, parseFloat(obj.style.top) - camY);
+                    if (dist < minDist) { minDist = dist; closest = obj; }
                 }
             });
-
-            if (closestActor) {
-                const actX = parseFloat(closestActor.style.left);
-                const actY = parseFloat(closestActor.style.top);
-                // Math.atan2 returns angle in radians
-                const angleRad = Math.atan2(actY - camY, actX - camX);
-                const angleDeg = angleRad * (180 / Math.PI) + 90; // +90 to align with CSS orientation
+            if (closest) {
+                const angle = Math.atan2(parseFloat(closest.style.top) - camY, parseFloat(closest.style.left) - camX) * (180/Math.PI) + 90;
+                camera.style.transform = `rotate(${angle}deg)`;
                 
-                camera.style.transform = `rotate(${angleDeg}deg)`;
-                camera.dataset.rotation = angleDeg;
-                
-                // Haptic feedback visual cue (could add border color change here)
+                // BILLBOARD EFFECT: Counter-rotate label so it stays readable
+                const label = camera.querySelector('.smart-label');
+                if(label) label.style.transform = `rotate(${-angle}deg)`;
             }
+        }
+
+        // --- PREVIEW ANIMATION (ACTION!) ---
+        function playScene() {
+            // Find all connections
+            connections.forEach(conn => {
+                const realObj = document.getElementById(conn.from);
+                const ghostObj = document.getElementById(conn.to);
+                
+                if (realObj && ghostObj) {
+                    // Calculate relative movement
+                    const startX = parseFloat(realObj.style.left);
+                    const startY = parseFloat(realObj.style.top);
+                    const endX = parseFloat(ghostObj.style.left);
+                    const endY = parseFloat(ghostObj.style.top);
+                    
+                    // Web Animations API
+                    realObj.animate([
+                        { left: `${startX}px`, top: `${startY}px` },
+                        { left: `${endX}px`, top: `${endY}px` }
+                    ], {
+                        duration: 2000,
+                        easing: 'ease-in-out',
+                        fill: 'forwards' // Stay at end
+                    });
+
+                    // Optional: Reset after delay
+                    setTimeout(() => {
+                        realObj.animate([
+                            { left: `${endX}px`, top: `${endY}px` },
+                            { left: `${startX}px`, top: `${startY}px` }
+                        ], { duration: 500, fill: 'forwards' });
+                    }, 3000);
+                }
+            });
+        }
+
+        // --- MOVEMENT SYSTEM ---
+        function addMovement() {
+            if (!selectedId) return;
+            const original = document.getElementById(selectedId);
+            if (original.classList.contains('ghost')) return; // Can't add movement to a ghost
+
+            // Create Ghost
+            const ghost = original.cloneNode(true);
+            ghost.id = `${original.id}-ghost`;
+            ghost.classList.add('ghost');
+            ghost.querySelectorAll('[id]').forEach(el => el.removeAttribute('id')); // Clean IDs
+            
+            // Offset position
+            const newX = parseFloat(original.style.left) + 100;
+            ghost.style.left = `${newX}px`;
+            
+            ghost.onpointerdown = (e) => startDrag(e, ghost);
+            world.appendChild(ghost);
+            objects.push(ghost);
+            
+            // Create Line
+            const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            line.setAttribute('stroke', 'var(--text-color)');
+            line.setAttribute('stroke-width', '2');
+            line.setAttribute('stroke-dasharray', '5,5');
+            line.setAttribute('opacity', '0.5');
+            svgLayer.appendChild(line);
+            
+            connections.push({ from: original.id, to: ghost.id, line: line });
+            updateGhostLine(ghost);
+        }
+
+        function updateGhostLine(ghost) {
+            const conn = connections.find(c => c.to === ghost.id);
+            if (conn) {
+                const origin = document.getElementById(conn.from);
+                const offset = 5000;
+                conn.line.setAttribute('x1', parseFloat(origin.style.left) + offset);
+                conn.line.setAttribute('y1', parseFloat(origin.style.top) + offset);
+                conn.line.setAttribute('x2', parseFloat(ghost.style.left) + offset);
+                conn.line.setAttribute('y2', parseFloat(ghost.style.top) + offset);
+            }
+        }
+
+        function updateParentConnections(parentId) {
+            const conns = connections.filter(c => c.from === parentId);
+            const offset = 5000;
+            const origin = document.getElementById(parentId);
+            conns.forEach(conn => {
+                const ghost = document.getElementById(conn.to);
+                conn.line.setAttribute('x1', parseFloat(origin.style.left) + offset);
+                conn.line.setAttribute('y1', parseFloat(origin.style.top) + offset);
+                conn.line.setAttribute('x2', parseFloat(ghost.style.left) + offset);
+                conn.line.setAttribute('y2', parseFloat(ghost.style.top) + offset);
+            });
         }
 
         // --- INSPECTOR LOGIC ---
         const inspector = document.getElementById('inspector');
+        const nameInput = document.getElementById('name-input');
         const lensSlider = document.getElementById('lens-slider');
-        const lensDisplay = document.getElementById('lens-display');
 
         function selectObject(item) {
             selectedId = item.id;
-            
-            // Show Inspector
             inspector.style.transform = "translateY(-50%) translateX(0)";
-
+            
+            // Populate Name
+            nameInput.value = item.dataset.label;
+            
             // Toggle Controls
-            if (item.dataset.type === 'camera') {
+            document.getElementById('cam-controls').classList.add('hidden');
+            
+            if (item.dataset.type === 'camera' && !item.classList.contains('ghost')) {
                 document.getElementById('cam-controls').classList.remove('hidden');
-                document.getElementById('actor-controls').classList.add('hidden');
-                
-                // Sync Slider
                 lensSlider.value = item.dataset.lens;
-                lensDisplay.innerText = item.dataset.lens + "mm";
-            } else {
-                document.getElementById('cam-controls').classList.add('hidden');
-                document.getElementById('actor-controls').classList.remove('hidden');
+                document.getElementById('lens-display').innerText = item.dataset.lens + "mm";
             }
         }
 
@@ -392,22 +587,89 @@
             selectedId = null;
         }
 
-        // Live Lens Update
+        // Live Name Update
+        nameInput.oninput = (e) => {
+            if (!selectedId) return;
+            const item = document.getElementById(selectedId);
+            const val = e.target.value;
+            item.dataset.label = val;
+            
+            // Update UI text
+            const textLabels = item.getElementsByClassName('label-text');
+            for(let span of textLabels) span.innerText = val;
+        };
+
+        // Live Color Update
+        function changeColor(hex) {
+            if (!selectedId) return;
+            const item = document.getElementById(selectedId);
+            
+            // Try to find specific parts to color
+            const actorBody = item.querySelector('.actor-body');
+            const camBody = item.querySelector('.cam-body');
+            const propBody = item.querySelector('.prop-body');
+            const fov = item.querySelector('.fov-cone');
+            
+            if (actorBody) {
+                actorBody.style.backgroundColor = hex;
+                actorBody.style.boxShadow = `0 0 15px ${hex}66`;
+            }
+            if (camBody) {
+                camBody.style.backgroundColor = hex;
+                camBody.style.boxShadow = `0 0 15px ${hex}66`;
+                if(fov) fov.style.borderTopColor = `${hex}33`; // 20% opacity
+            }
+            if (propBody) {
+                propBody.querySelector('i').style.color = hex;
+                propBody.style.borderColor = hex;
+            }
+        }
+
+        function deleteSelected() {
+            if (!selectedId) return;
+            const item = document.getElementById(selectedId);
+            
+            // Clean up connections
+            connections = connections.filter(conn => {
+                if (conn.from === selectedId || conn.to === selectedId) {
+                    if (conn.to === selectedId) document.getElementById(conn.from).remove(); // Remove parent if ghost deleted? No, just link.
+                    conn.line.remove();
+                    // If deleting parent, delete ghost too
+                    if (conn.from === selectedId) {
+                         const ghost = document.getElementById(conn.to);
+                         if(ghost) ghost.remove();
+                    }
+                    return false;
+                }
+                return true;
+            });
+
+            item.remove();
+            objects = objects.filter(o => o.id !== selectedId);
+            closeInspector();
+        }
+
+        // Lens Slider
         lensSlider.oninput = (e) => {
             if (!selectedId) return;
             const item = document.getElementById(selectedId);
-            if (!item || item.dataset.type !== 'camera') return;
-
             const val = e.target.value;
             item.dataset.lens = val;
-            lensDisplay.innerText = val + "mm";
+            
+            document.getElementById('lens-display').innerText = val + "mm";
+            item.querySelector(`#${selectedId}-focal`).innerText = val + "mm";
 
-            // Update Cone Scale
-            const cone = document.getElementById(`${selectedId}-cone`);
-            // 35mm = scale 1. 18mm = scale 2.
             const scale = 35 / val; 
+            const cone = item.querySelector('.fov-cone');
             cone.style.transform = `translateX(-50%) scaleX(${scale})`;
         };
+
+        function toggleTheme() {
+            document.body.classList.toggle('light-mode');
+            const icon = document.getElementById('theme-icon');
+            icon.classList.toggle('fa-moon');
+            icon.classList.toggle('fa-sun');
+        }
 
     </script>
 </body>
