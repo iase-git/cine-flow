@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>CineFlow | Pro Blocking</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root { --neon-blue: #00f3ff; --bg-dark: #121212; }
+        body { background-color: var(--bg-dark); margin: 0; overflow: hidden; touch-action: none; font-family: sans-serif; color: white; }
+        
+        /* Infinite Grid */
+        #canvas-container { width: 100vw; height: 100vh; position: relative; }
+        #grid {
+            position: absolute; width: 5000px; height: 5000px;
+            background-image: radial-gradient(circle, rgba(255,255,255,0.1) 1px, transparent 1px);
+            background-size: 50px 50px;
+            transform-origin: 0 0;
+        }
+
+        /* Camera & FOV */
+        .camera-wrapper { position: absolute; transform-origin: center; display: flex; flex-direction: column; align-items: center; cursor: pointer; transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        .fov-cone {
+            width: 0; height: 0;
+            border-left: 60px solid transparent; border-right: 60px solid transparent;
+            border-top: 200px solid rgba(0, 243, 255, 0.1);
+            position: absolute; top: -200px; pointer-events: none;
+            transform-origin: bottom center;
+        }
+        .camera-icon {
+            width: 32px; height: 32px; background: var(--neon-blue); clip-path: polygon(25% 0%, 75% 0%, 100% 100%, 0% 100%);
+            box-shadow: 0 0 20px var(--neon-blue);
+        }
+
+        /* Glass Panel */
+        .glass { background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,0.1); }
+        
+        /* Slider Styling */
+        input[type=range] { appearance: none; background: rgba(255,255,255,0.1); border-radius: 10px; height: 6px; }
+        input[type=range]::-webkit-slider-thumb { appearance: none; width: 18px; height: 18px; background: var(--neon-blue); border-radius: 50%; cursor: pointer; box-shadow: 0 0 10px var(--neon-blue); }
+    </style>
+</head>
+<body>
+
+    <div id="canvas-container">
+        <div id="grid">
+            <div id="camera-a" class="camera-wrapper" style="left: 2500px; top: 2500px;">
+                <div id="fov" class="fov-cone" style="transform: scaleX(1);"></div>
+                <div class="camera-icon"></div>
+                <div id="cam-label" class="mt-2 px-3 py-1 glass rounded-full text-[10px]">CAM A: 35mm</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="inspector" class="fixed right-6 top-1/2 -translate-y-1/2 w-64 p-6 glass rounded-3xl transition-all translate-x-[120%] shadow-2xl">
+        <h2 class="text-xs font-bold tracking-widest text-cyan-400 mb-6 uppercase">Shot Inspector</h2>
+        
+        <div class="mb-6">
+            <label class="block text-[10px] text-white/50 mb-2 uppercase">Lens Focal Length</label>
+            <div class="flex items-center gap-4">
+                <input type="range" id="lens-slider" min="18" max="150" value="35" class="w-full">
+                <span id="lens-value" class="text-sm font-mono w-10">35mm</span>
+            </div>
+        </div>
+
+        <div class="mb-6">
+            <label class="block text-[10px] text-white/50 mb-2 uppercase">Shot Type</label>
+            <div class="grid grid-cols-3 gap-2">
+                <button class="text-[9px] py-1 border border-white/10 rounded hover:bg-white/10">WIDE</button>
+                <button class="text-[9px] py-1 border border-white/10 rounded bg-cyan-500/20 text-cyan-400 border-cyan-400/50">MCU</button>
+                <button class="text-[9px] py-1 border border-white/10 rounded hover:bg-white/10">CU</button>
+            </div>
+        </div>
+
+        <button onclick="closeInspector()" class="w-full py-2 bg-white/5 text-xs rounded-xl hover:bg-white/10 transition-colors">Close</button>
+    </div>
+
+    <script>
+        const camera = document.getElementById('camera-a');
+        const fov = document.getElementById('fov');
+        const inspector = document.getElementById('inspector');
+        const lensSlider = document.getElementById('lens-slider');
+        const lensValue = document.getElementById('lens-value');
+        const camLabel = document.getElementById('cam-label');
+
+        let isDragging = false, startX, startY;
+
+        // 1. Open Inspector on Camera Click
+        camera.onclick = (e) => {
+            e.stopPropagation();
+            inspector.style.transform = "translateY(-50%) translateX(0)";
+            camera.style.transform = "scale(1.2)";
+        };
+
+        function closeInspector() {
+            inspector.style.transform = "translateY(-50%) translateX(120%)";
+            camera.style.transform = "scale(1)";
+        }
+
+        // 2. Lens Logic (FOV Width calculation)
+        lensSlider.oninput = (e) => {
+            const mm = e.target.value;
+            lensValue.innerText = mm + "mm";
+            camLabel.innerText = "CAM A: " + mm + "mm";
+            
+            // Optical Formula: Narrower lens = Smaller FOV scale
+            // 35mm is our '1.0' scale. 18mm is wider, 85mm is narrower.
+            const fovScale = 35 / mm;
+            fov.style.transform = `scaleX(${fovScale})`;
+        };
+
+        // 3. Drag Logic
+        camera.onpointerdown = (e) => {
+            isDragging = true;
+            startX = e.clientX - camera.offsetLeft;
+            startY = e.clientY - camera.offsetTop;
+            camera.setPointerCapture(e.pointerId);
+        };
+
+        window.onpointermove = (e) => {
+            if (!isDragging) return;
+            camera.style.left = `${e.clientX - startX}px`;
+            camera.style.top = `${e.clientY - startY}px`;
+        };
+
+        window.onpointerup = () => isDragging = false;
+
+    </script>
+</body>
+</html>
