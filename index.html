@@ -439,8 +439,11 @@
   <!-- ===== PROPS ===== -->
   <div id="prop-picker" class="fixed inset-0 bg-black/90 z-[60] hidden flex items-center justify-center backdrop-blur-md animate-in">
     <div class="glass-panel w-[90vw] max-w-md h-[70vh] rounded-[32px] overflow-hidden flex flex-col border border-white/10">
-      <div class="p-6 border-b border-white/5">
+      <div class="p-6 border-b border-white/5 flex items-center justify-between">
         <h3 class="text-xs font-bold uppercase tracking-[0.2em] text-brand">Prop Warehouse</h3>
+        <button data-action="closePropPicker" class="opacity-60 hover:opacity-100 hover:text-brand" aria-label="Chiudi props" title="Chiudi">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
       </div>
       <div class="p-3 flex gap-3 overflow-x-auto border-b border-white/5 hide-scroll bg-black/20">
         <button data-prop-cat="light" class="px-4 py-1.5 bg-brand text-black rounded-full text-[10px] font-bold shadow-lg shadow-brand/20">Lighting</button>
@@ -452,6 +455,8 @@
   </div>
 
   <!-- ===== LAYERS ===== -->
+  <div id="layers-overlay" class="fixed inset-0 bg-black/50 z-[49] hidden backdrop-blur-sm"></div>
+
   <div id="layers-panel" class="fixed left-6 top-1/2 -translate-y-1/2 w-64 glass-panel rounded-3xl p-6 -translate-x-[150%] transition-transform duration-300 shadow-2xl z-50 border-r border-white/10">
     <div class="flex justify-between items-center mb-6">
       <h2 class="text-xs font-bold opacity-40 uppercase tracking-[0.2em]">Layers</h2>
@@ -578,7 +583,7 @@
     </div>
   </div>
 
-id="storyboard-modal" class="fixed inset-0 bg-black/95 z-[80] hidden items-center justify-center backdrop-blur-lg">
+  <div id="storyboard-modal" class="fixed inset-0 bg-black/95 z-[80] hidden items-center justify-center backdrop-blur-lg">
     <div class="glass-panel w-[92vw] max-w-6xl max-h-[90vh] rounded-3xl overflow-hidden flex flex-col border border-white/10">
       <div class="p-6 border-b border-white/5 flex justify-between items-center">
         <div>
@@ -665,6 +670,7 @@ id="storyboard-modal" class="fixed inset-0 bg-black/95 z-[80] hidden items-cente
     propPicker: document.getElementById("prop-picker"),
     propGrid: document.getElementById("prop-grid"),
 
+    layersOverlay: document.getElementById("layers-overlay"),
     layersPanel: document.getElementById("layers-panel"),
 
     timeline: document.getElementById("timeline-container"),
@@ -1323,10 +1329,18 @@ id="storyboard-modal" class="fixed inset-0 bg-black/95 z-[80] hidden items-cente
   }
 
   // ---------- Layers ----------
+  function openLayers(){
+    el.layersOverlay.classList.remove("hidden");
+    el.layersPanel.classList.remove("-translate-x-[150%]");
+  }
+  function closeLayers(){
+    el.layersOverlay.classList.add("hidden");
+    el.layersPanel.classList.add("-translate-x-[150%]");
+  }
   function toggleLayers(){
-    const p = el.layersPanel;
-    const isHidden = p.style.transform.includes("-150%") || p.classList.contains("-translate-x-[150%]");
-    p.style.transform = isHidden ? "translateY(-50%) translateX(0)" : "translateY(-50%) translateX(-150%)";
+    const isOpen = !el.layersPanel.classList.contains("-translate-x-[150%]");
+    if(isOpen) closeLayers();
+    else openLayers();
   }
 
   function toggleLayerVisibility(layer){
@@ -1774,15 +1788,13 @@ id="storyboard-modal" class="fixed inset-0 bg-black/95 z-[80] hidden items-cente
 
   // ---------- Snapshot ----------
   async function takeSnapshot(){
-    const prev = el.world.style.transform;
-    el.world.style.transform = "none";
+    // Snapshot = ciò che vedi nel viewport (pan/zoom inclusi)
     const bg = getComputedStyle(document.body).getPropertyValue("--bg-color").trim() || "#0d0d0d";
-    const canvas = await html2canvas(el.world, { backgroundColor: bg });
+    const canvas = await html2canvas(el.viewport, { backgroundColor: bg });
     const a = document.createElement("a");
-    a.download = `${state.sceneName || "Scene"}_Plan.png`;
+    a.download = `${state.sceneName || "Scene"}_Snapshot.png`;
     a.href = canvas.toDataURL("image/png");
     a.click();
-    el.world.style.transform = prev;
   }
 
   // ---------- POV Renderer (DoP-style) ----------
@@ -2051,6 +2063,17 @@ id="storyboard-modal" class="fixed inset-0 bg-black/95 z-[80] hidden items-cente
     return new Promise((res) => canvas.toBlob((b) => res(b), "image/png"));
   }
 
+  function downloadBlob(blob, filename){
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  }
+
   function exportStoryboard(){
     el.storyboardModal.classList.remove("hidden");
     el.storyboardModal.classList.add("flex");
@@ -2105,7 +2128,8 @@ id="storyboard-modal" class="fixed inset-0 bg-black/95 z-[80] hidden items-cente
 
       actions.querySelector(`[data-dl="${cam.id}"]`).addEventListener("click", async () => {
         const b = await canvasToBlob(canvas);
-        saveAs(b, `${safeFile(cam.label)}_POV.png`);
+        if(typeof saveAs === "function") saveAs(b, `${safeFile(cam.label)}_POV.png`);
+        else downloadBlob(b, `${safeFile(cam.label)}_POV.png`);
       });
 
       actions.querySelector(`[data-jump="${cam.id}"]`).addEventListener("click", () => {
@@ -2118,6 +2142,15 @@ id="storyboard-modal" class="fixed inset-0 bg-black/95 z-[80] hidden items-cente
     const items = [...storyboardCache.values()];
     if(items.length === 0) return;
 
+    // Fallback: se JSZip non è disponibile, scarica i PNG uno per uno
+    if(typeof JSZip === "undefined"){
+      for(const item of items){
+        const blob = await canvasToBlob(item.canvas);
+        downloadBlob(blob, `${safeFile(item.cam.label)}_POV.png`);
+      }
+      return;
+    }
+
     const zip = new JSZip();
     const folder = zip.folder(safeFile(state.sceneName || "Scene"));
 
@@ -2127,7 +2160,8 @@ id="storyboard-modal" class="fixed inset-0 bg-black/95 z-[80] hidden items-cente
     }
 
     const out = await zip.generateAsync({ type: "blob" });
-    saveAs(out, `${safeFile(state.sceneName || "Scene")}_Storyboard.zip`);
+    if(typeof saveAs === "function") saveAs(out, `${safeFile(state.sceneName || "Scene")}_Storyboard.zip`);
+    else downloadBlob(out, `${safeFile(state.sceneName || "Scene")}_Storyboard.zip`);
   }
 
   function closeStoryboard(){
@@ -2202,6 +2236,7 @@ id="storyboard-modal" class="fixed inset-0 bg-black/95 z-[80] hidden items-cente
         addGhostPath,
         deleteSelected,
         openPropPicker,
+        closePropPicker,
         closeTimeline,
         closeStoryboard,
         downloadStoryboardZip,
@@ -2224,6 +2259,9 @@ id="storyboard-modal" class="fixed inset-0 bg-black/95 z-[80] hidden items-cente
     el.storyboardModal.addEventListener("click", (ev) => { if(ev.target === el.storyboardModal) closeStoryboard(); });
     el.propPicker.addEventListener("click", (ev) => { if(ev.target === el.propPicker) closePropPicker(); });
     el.projectSettings.addEventListener("click", (ev) => { if(ev.target === el.projectSettings) closeProjectSettings(); });
+
+    // Layers backdrop
+    el.layersOverlay.addEventListener("click", closeLayers);
 
     // Prop categories
     document.querySelectorAll("[data-prop-cat]").forEach(b => {
@@ -2276,6 +2314,7 @@ id="storyboard-modal" class="fixed inset-0 bg-black/95 z-[80] hidden items-cente
         if(!el.sceneMenu.classList.contains("hidden")) closeSceneMenu();
         if(!el.propPicker.classList.contains("hidden")) closePropPicker();
         if(!el.projectSettings.classList.contains("hidden")) closeProjectSettings();
+        if(!el.layersPanel.classList.contains("-translate-x-[150%]")) closeLayers();
         closeInspector();
         document.body.style.cursor = "default";
         state.targetMode = false;
