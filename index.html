@@ -182,33 +182,7 @@
       display:block;
       background:#111;
     }
-  
-        /* Info overlay (labels + meta) */
-        .meta-tag{
-            margin-top: 4px;
-            font-size: 8px;
-            font-weight: 700;
-            letter-spacing: 0.02em;
-            opacity: 0;
-            transition: opacity 0.15s ease;
-            background: rgba(0,0,0,0.55);
-            border: 1px solid rgba(255,255,255,0.10);
-            padding: 2px 6px;
-            border-radius: 6px;
-            pointer-events: none;
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-            white-space: nowrap;
-            max-width: 220px;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        body.info-on .label-tag { opacity: 1 !important; }
-        body.info-on .meta-tag { opacity: 1 !important; }
-        body:not(.info-on) .meta-tag { display: none; }
-
-</style>
+  </style>
 </head>
 
 <body>
@@ -291,18 +265,6 @@
                   aria-label="Snapshot" title="Snapshot">
             <i class="fa-solid fa-camera text-xs"></i>
           </button>
-          <button data-action="toggleInfo" id="info-btn"
-                  class="flex-none glass-panel w-11 h-11 rounded-2xl flex items-center justify-center hover:text-brand transition"
-                  aria-label="Mostra/Nascondi info" title="Info overlay">
-            <i class="fa-solid fa-eye text-xs" id="info-icon"></i>
-          </button>
-
-          <button data-action="toggleTheme" id="theme-btn"
-                  class="flex-none glass-panel w-11 h-11 rounded-2xl flex items-center justify-center hover:text-brand transition"
-                  aria-label="Tema chiaro/scuro" title="Tema">
-            <i class="fa-solid fa-moon text-xs" id="theme-icon"></i>
-          </button>
-
 
           <button data-action="openProjectSettings"
                   class="flex-none glass-panel w-11 h-11 rounded-2xl flex items-center justify-center hover:text-brand transition"
@@ -721,10 +683,6 @@
 
     snapBtn: document.getElementById("snap-btn"),
     measureBtn: document.getElementById("measure-btn"),
-    themeBtn: document.getElementById("theme-btn"),
-    themeIcon: document.getElementById("theme-icon"),
-    infoBtn: document.getElementById("info-btn"),
-    infoIcon: document.getElementById("info-icon"),
 
     projectSettings: document.getElementById("project-settings"),
     aboutModal: document.getElementById("about-modal"),
@@ -736,33 +694,17 @@
   const propDB = {
     light: [
       { n: "Skypanel", i: "fa-table-cells", w: 40, h: 25 },
-      { n: "Fresnel", i: "fa-sun", w: 28, h: 28 },
       { n: "Spot", i: "fa-bullseye", w: 25, h: 35 },
-      { n: "Softbox", i: "fa-square", w: 45, h: 35 },
       { n: "Tube", i: "fa-grip-lines-vertical", w: 10, h: 50 },
-      { n: "Practical", i: "fa-lightbulb", w: 16, h: 16 },
-      { n: "Flag", i: "fa-rectangle-xmark", w: 60, h: 15 },
-      { n: "Bounce", i: "fa-circle", w: 55, h: 30 },
-      { n: "C-Stand", i: "fa-grip-vertical", w: 10, h: 35 },
     ],
     furniture: [
       { n: "Chair", i: "fa-chair", w: 30, h: 30 },
-      { n: "Stool", i: "fa-chair", w: 22, h: 22 },
       { n: "Table", i: "fa-table", w: 60, h: 40 },
-      { n: "Desk", i: "fa-table", w: 70, h: 35 },
-      { n: "Sofa", i: "fa-couch", w: 70, h: 35 },
       { n: "Bed", i: "fa-bed", w: 60, h: 80 },
-      { n: "Shelf", i: "fa-boxes-stacked", w: 50, h: 18 },
     ],
     set: [
       { n: "Wall", i: "fa-square", w: 100, h: 10 },
-      { n: "Door", i: "fa-door-open", w: 40, h: 8 },
       { n: "Window", i: "fa-border-all", w: 60, h: 5 },
-      { n: "Curtain", i: "fa-grip-lines", w: 60, h: 8 },
-      { n: "Stairs", i: "fa-stairs", w: 70, h: 20 },
-      { n: "Car", i: "fa-car-side", w: 90, h: 35 },
-      { n: "Tree", i: "fa-tree", w: 45, h: 45 },
-      { n: "Pole", i: "fa-grip-lines-vertical", w: 10, h: 60 },
     ],
   };
 
@@ -786,10 +728,6 @@
       aspect: 2.39,        // default for DoP
       overlays: true
     },
-
-    // UI prefs
-    uiTheme: "dark",
-    infoVisible: true,
 
     // animation
     isAnimating: false,
@@ -840,83 +778,6 @@
     const t = (s ?? "").toString().trim();
     return t.length ? t.slice(0, 30) : "";
   }
-
-  // ---------- Helpers ----------
-  function hexToRgba(hex, alpha){
-    const h = (hex || "").replace("#","").trim();
-    if(h.length !== 6) return `rgba(255,163,0,${alpha})`;
-    const r = parseInt(h.slice(0,2),16);
-    const g = parseInt(h.slice(2,4),16);
-    const b = parseInt(h.slice(4,6),16);
-    return `rgba(${r},${g},${b},${alpha})`;
-  }
-
-  function metaForObject(o){
-    const layer = `L${o.layer || "1"}`;
-    if(o.type === "camera"){
-      const sensor = o.sensor || "FF";
-      const focal = (o.focal ?? 35);
-      const {hfov} = computeFovDegrees(sensor, focal);
-      const fovTxt = o.useFovOverride ? `FOV ${Math.round(o.fovOverride ?? 60)}°` : `HFOV ${Math.round(hfov)}°`;
-      const target = o.targetId ? (getObject(o.targetId)?.label || "Target") : null;
-      return target ? `${layer} • ${sensor} ${focal}mm • ${fovTxt} • Track ${target}` : `${layer} • ${sensor} ${focal}mm • ${fovTxt}`;
-    }
-    if(o.type === "actor"){
-      return `${layer} • H ${state.actorHeightM.toFixed(2)}m`;
-    }
-    if(o.type === "prop"){
-      const w = Math.round(o.w || 40);
-      const h = Math.round(o.h || 25);
-      return `${layer} • ${w}×${h}`;
-    }
-    return layer;
-  }
-
-  // ---------- UI prefs ----------
-  const UI_THEME_KEY = `${VERSION}::ui::theme`;
-  const UI_INFO_KEY  = `${VERSION}::ui::info`;
-
-  function applyTheme(){
-    document.body.classList.toggle("light-mode", state.uiTheme === "light");
-    if(el.themeIcon){
-      el.themeIcon.className = `fa-solid ${state.uiTheme === "light" ? "fa-sun" : "fa-moon"} text-xs`;
-    }
-  }
-
-  function applyInfoVisibility(){
-    document.body.classList.toggle("info-on", !!state.infoVisible);
-    if(el.infoIcon){
-      el.infoIcon.className = `fa-solid ${state.infoVisible ? "fa-eye" : "fa-eye-slash"} text-xs`;
-    }
-  }
-
-  function loadUiPrefs(){
-    const t = localStorage.getItem(UI_THEME_KEY);
-    state.uiTheme = (t === "light") ? "light" : "dark";
-
-    const i = localStorage.getItem(UI_INFO_KEY);
-    state.infoVisible = (i === null) ? true : (i === "1");
-
-    applyTheme();
-    applyInfoVisibility();
-    updateTopButtonsState();
-  }
-
-  function toggleTheme(){
-    state.uiTheme = (state.uiTheme === "light") ? "dark" : "light";
-    localStorage.setItem(UI_THEME_KEY, state.uiTheme);
-    applyTheme();
-    updateTopButtonsState();
-  }
-
-  function toggleInfo(){
-    state.infoVisible = !state.infoVisible;
-    localStorage.setItem(UI_INFO_KEY, state.infoVisible ? "1" : "0");
-    applyInfoVisibility();
-    updateTopButtonsState();
-    markDirty({render:true});
-  }
-
 
   function forwardVector(rotDeg){
     const rad = rotDeg * Math.PI/180;
@@ -1004,9 +865,9 @@
       rot: opts.rot ?? 0,
       layer: opts.layer ?? "1",
       label: sanitizeLabel(opts.label ?? (type === "camera" ? "CAM" : type === "actor" ? "Actor" : "Prop")),
-      color: opts.color ?? (type === "actor" ? "#f43f5e" : type === "camera" ? "#ffa300" : ""),
-      w: opts.w ?? (type === "camera" ? 36 : type === "actor" ? 40 : type === "prop" ? 40 : 0),
-      h: opts.h ?? (type === "camera" ? 24 : type === "actor" ? 40 : type === "prop" ? 25 : 0),
+      color: opts.color ?? (type === "actor" ? "#f43f5e" : ""),
+      w: opts.w ?? (type === "prop" ? 40 : 0),
+      h: opts.h ?? (type === "prop" ? 25 : 0),
       icon: opts.icon ?? (type === "prop" ? "fa-cube" : ""),
       // camera lens:
       sensor: opts.sensor ?? "FF",
@@ -1081,10 +942,9 @@
       `;
     }
     if(o.type === "actor"){
-      const s = Math.max(24, o.w || 40);
       return `
-        <div class="rounded-full object-visual shadow-lg relative border-2 border-white/20"
-             style="width:${s}px; height:${s}px; background-color:${o.color || "#f43f5e"}">
+        <div class="w-10 h-10 rounded-full object-visual shadow-lg relative border-2 border-white/20"
+             style="background-color:${o.color || "#f43f5e"}">
           <div class="absolute top-0 left-1/2 -translate-x-1/2 w-2 h-2 bg-white rounded-full -mt-1"></div>
         </div>
       `;
@@ -1123,7 +983,6 @@
         node.innerHTML = `
           ${buildVisualHTML(o)}
           <div class="text-[8px] font-bold mt-3 opacity-0 group-hover:opacity-100 bg-black/80 text-white px-2 py-1 rounded-md backdrop-blur-md label-tag whitespace-nowrap transition-opacity border border-white/10 pointer-events-none">${o.label}</div>
-          <div class="meta-tag pointer-events-none"></div>
           <div class="control-handle rotate-handle"><i class="fa-solid fa-rotate"></i></div>
           <div class="control-handle resize-handle"></div>
           <div class="layer-badge">${o.layer}</div>
@@ -1141,18 +1000,9 @@
           const {hfov} = computeFovDegrees(o.sensor, o.focal);
           const spread = clamp(hfov, 20, 120) * 2;
           const cone = node.querySelector(".fov-cone");
-          const camColor = o.color || "#ffa300";
-          const coneColor = hexToRgba(camColor, 0.15);
           if(cone){
             cone.style.borderLeftWidth = `${spread}px`;
             cone.style.borderRightWidth = `${spread}px`;
-            cone.style.borderTopColor = coneColor;
-          }
-          const vis = node.querySelector(".object-visual");
-          if(vis){
-            vis.style.width = `${Math.max(24, o.w || 36)}px`;
-            vis.style.height = `${Math.max(16, o.h || 24)}px`;
-            vis.style.backgroundColor = camColor;
           }
         }
         if(o.type === "prop"){
@@ -1173,12 +1023,7 @@
         }
         if(o.type === "actor"){
           const vis = node.querySelector(".object-visual");
-          if(vis){
-            const s2 = Math.max(24, o.w || 40);
-            vis.style.width = `${s2}px`;
-            vis.style.height = `${s2}px`;
-            vis.style.backgroundColor = o.color || "#f43f5e";
-          }
+          if(vis) vis.style.backgroundColor = o.color || "#f43f5e";
         }
       }
 
@@ -1389,8 +1234,6 @@
   function updateTopButtonsState(){
     el.measureBtn.classList.toggle("text-brand", state.measurementsEnabled);
     el.snapBtn.classList.toggle("text-brand", state.snapEnabled);
-    if(el.infoBtn) el.infoBtn.classList.toggle("text-brand", state.infoVisible);
-    if(el.themeBtn) el.themeBtn.classList.toggle("text-brand", state.uiTheme === "light");
   }
 
   // ---------- Scene Manager ----------
@@ -1541,15 +1384,6 @@
 
   // ---------- Props ----------
   function filterProps(cat){
-    // highlight selected category
-    const selectedClass = "px-4 py-1.5 bg-brand text-black rounded-full text-[10px] font-bold shadow-lg shadow-brand/20";
-    const normalClass = "px-4 py-1.5 bg-white/5 hover:bg-white/10 rounded-full text-[10px] font-medium transition";
-
-    document.querySelectorAll("[data-prop-cat]").forEach(btn => {
-      const c = btn.getAttribute("data-prop-cat");
-      btn.className = (c === cat) ? selectedClass : normalClass;
-    });
-
     el.propGrid.innerHTML = "";
     (propDB[cat] || []).forEach(p => {
       const b = document.createElement("button");
@@ -1724,35 +1558,23 @@
     const o = getObject(id);
     const node = document.getElementById(id);
     if(!o || !node) return;
-    if(!["prop","camera","actor"].includes(o.type)) return;
+    if(o.type !== "prop") return;
 
     node.setPointerCapture(e.pointerId);
 
-    const start = { w: (o.w || (o.type==="camera"?36:o.type==="actor"?40:40)), h: (o.h || (o.type==="camera"?24:o.type==="actor"?40:25)), px: e.clientX, py: e.clientY };
+    const start = { w: o.w || 40, h: o.h || 25, px: e.clientX, py: e.clientY };
 
     function move(ev){
       const dx = (ev.clientX - start.px) / state.view.scale;
       const dy = (ev.clientY - start.py) / state.view.scale;
 
-      const minW = (o.type === "camera") ? 24 : 20;
-      const minH = (o.type === "camera") ? 16 : 20;
-
-      let nw = Math.max(minW, start.w + dx);
-      let nh = Math.max(minH, start.h + dy);
-
-      // Actor: keep it circular (square)
-      if(o.type === "actor"){
-        const s3 = Math.max(nw, nh);
-        nw = s3; nh = s3;
-      }
+      o.w = Math.max(20, start.w + dx);
+      o.h = Math.max(20, start.h + dy);
 
       if(state.snapEnabled){
-        nw = Math.round(nw / GRID_SNAP) * GRID_SNAP;
-        nh = Math.round(nh / GRID_SNAP) * GRID_SNAP;
+        o.w = Math.round(o.w / GRID_SNAP) * GRID_SNAP;
+        o.h = Math.round(o.h / GRID_SNAP) * GRID_SNAP;
       }
-
-      o.w = nw;
-      o.h = nh;
 
       markDirty({render:true, lines:true, meas:true});
     }
@@ -2254,148 +2076,92 @@
 
   function exportStoryboard(){
     el.storyboardModal.classList.remove("hidden");
-    el.storyboardGrid.innerHTML = "";
+    el.storyboardModal.classList.add("flex");
 
     const cams = state.objects.filter(o => o.type === "camera" && !o.isGhost);
     if(cams.length === 0){
-      el.storyboardGrid.innerHTML = '<div class="text-center text-xs text-red-400 py-8">Nessuna camera nella scena</div>';
+      el.storyboardGrid.innerHTML = `<div class="text-center text-xs text-red-300 py-10">Nessuna camera trovata nella scena.</div>`;
       return;
     }
 
     storyboardCache.clear();
 
-    const aspect = state.storyboard.aspect || 2.39;
-    const container = document.createElement("div");
-    container.className = "space-y-8";
+    el.storyboardGrid.className = "p-6 overflow-y-auto grid grid-cols-1 md:grid-cols-2 gap-4";
+    el.storyboardGrid.innerHTML = "";
 
-    cams.forEach((rootCam) => {
-      const rootLabel = rootCam.label || "CAM";
+    cams.forEach((cam, idx) => {
+      const card = document.createElement("div");
+      card.className = "storyboard-frame p-3 flex flex-col gap-2";
 
-      // Build sequence: root + ghost chain
-      const seq = [];
-      let cur = rootCam;
-      let guard = 0;
-      while(cur && guard++ < 200){
-        seq.push(cur);
-        if(!cur.nextPathId) break;
-        const next = getObject(cur.nextPathId);
-        if(!next || next.type !== "camera") break;
-        cur = next;
-      }
-
-      const section = document.createElement("div");
-      section.className = "space-y-3";
-      section.innerHTML = `
-        <div class="flex items-center justify-between">
-          <div class="text-[10px] font-bold uppercase tracking-widest opacity-60">
-            ${escapeHtml(rootLabel)} • ${seq.length} frame
-          </div>
-        </div>
+      const title = document.createElement("div");
+      title.className = "flex items-center justify-between text-xs";
+      title.innerHTML = `
+        <div class="text-brand font-bold"><i class="fa-solid fa-video mr-2"></i>${cam.label}</div>
+        <div class="text-[10px] opacity-60">Frame ${idx+1}</div>
       `;
 
-      const grid = document.createElement("div");
-      grid.className = "grid grid-cols-2 md:grid-cols-3 gap-4";
+      const canvas = document.createElement("canvas");
+      canvas.className = "pov-canvas";
+      // monitor-like: ALWAYS 16:9, letterbox inside for 2.39/1.85
+      canvas.width = 960;
+      canvas.height = 540;
 
-      seq.forEach((camState, i) => {
-        const frameKey = `${rootCam.id}__${i+1}`;
-        const frame = document.createElement("div");
-        frame.className = "storyboard-frame bg-black/40 p-3 flex flex-col gap-2";
+      const actions = document.createElement("div");
+      actions.className = "flex gap-2 justify-end pt-1";
+      actions.innerHTML = `
+        <button class="px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-[10px] font-bold" data-dl="${cam.id}">
+          <i class="fa-solid fa-download mr-2"></i>PNG
+        </button>
+        <button class="px-3 py-2 rounded-xl bg-brand/10 border border-brand/20 hover:bg-brand hover:text-black text-brand text-[10px] font-bold transition" data-jump="${cam.id}">
+          <i class="fa-solid fa-location-crosshairs mr-2"></i>FOCUS
+        </button>
+      `;
 
-        const header = document.createElement("div");
-        header.className = "flex items-center justify-between";
-        header.innerHTML = `
-          <div class="text-[9px] font-bold opacity-70">
-            Shot ${i+1}/${seq.length}
-          </div>
-          <div class="flex gap-2">
-            <button class="glass-panel w-9 h-9 rounded-xl flex items-center justify-center hover:text-brand transition"
-                    data-action="downloadStoryboardFrame" data-frame="${frameKey}" title="Download PNG">
-              <i class="fa-solid fa-download text-xs"></i>
-            </button>
-            <button class="glass-panel w-9 h-9 rounded-xl flex items-center justify-center hover:text-brand transition"
-                    data-action="focusOnCameraFrame" data-camid="${camState.id}" title="Focus camera">
-              <i class="fa-solid fa-crosshairs text-xs"></i>
-            </button>
-          </div>
-        `;
+      card.appendChild(title);
+      card.appendChild(canvas);
+      card.appendChild(actions);
+      el.storyboardGrid.appendChild(card);
 
-        const canvas = document.createElement("canvas");
-        canvas.width = 640;
-        canvas.height = Math.round(640 / aspect);
-        canvas.className = "w-full rounded-lg";
+      cameraPOVRenderToCanvas(cam, canvas);
 
-        frame.appendChild(header);
-        frame.appendChild(canvas);
+      storyboardCache.set(cam.id, { cam, canvas });
 
-        const meta = document.createElement("div");
-        meta.className = "text-[8px] opacity-50 text-center";
-        meta.textContent = metaForObject(camState);
-        frame.appendChild(meta);
-
-        grid.appendChild(frame);
-
-        cameraPOVRenderToCanvas(camState, canvas);
-
-        storyboardCache.set(frameKey, {
-          key: frameKey,
-          rootLabel,
-          index: i+1,
-          total: seq.length,
-          canvas
-        });
+      actions.querySelector(`[data-dl="${cam.id}"]`).addEventListener("click", async () => {
+        const b = await canvasToBlob(canvas);
+        if(typeof saveAs === "function") saveAs(b, `${safeFile(cam.label)}_POV.png`);
+        else downloadBlob(b, `${safeFile(cam.label)}_POV.png`);
       });
 
-      section.appendChild(grid);
-      container.appendChild(section);
+      actions.querySelector(`[data-jump="${cam.id}"]`).addEventListener("click", () => {
+        focusOnObject(cam.id);
+      });
     });
-
-    el.storyboardGrid.appendChild(container);
   }
 
-  async 
-  function downloadStoryboardFrame(frameKey){
-    const item = storyboardCache.get(frameKey);
-    if(!item || !item.canvas) return;
-    const safe = safeFileName(item.rootLabel || "CAM");
-    const filename = `${safe}_Shot_${String(item.index).padStart(2,"0")}.png`;
-    downloadCanvasAsPng(item.canvas, filename);
-  }
+  async function downloadStoryboardZip(){
+    const items = [...storyboardCache.values()];
+    if(items.length === 0) return;
 
-  function focusOnCameraFrame(camId){
-    focusOnCamera(camId);
-    closeStoryboard();
-  }
-
-function downloadStoryboardZip(){
-    if(storyboardCache.size === 0){
-      alert("Nessun frame da esportare. Apri prima lo Storyboard.");
+    // Fallback: se JSZip non è disponibile, scarica i PNG uno per uno
+    if(typeof JSZip === "undefined"){
+      for(const item of items){
+        const blob = await canvasToBlob(item.canvas);
+        downloadBlob(blob, `${safeFile(item.cam.label)}_POV.png`);
+      }
       return;
     }
+
     const zip = new JSZip();
-    const baseFolder = safeFileName(state.sceneName || "CineFlow");
-    const folder = zip.folder(`${baseFolder}_Storyboard`) || zip;
+    const folder = zip.folder(safeFile(state.sceneName || "Scene"));
 
-    const items = [...storyboardCache.values()].sort((a,b) => a.key.localeCompare(b.key));
-    items.forEach(item => {
-      const safe = safeFileName(item.rootLabel || "CAM");
-      const name = `${safe}_Shot_${String(item.index).padStart(2,"0")}.png`;
-      const dataUrl = item.canvas.toDataURL("image/png");
-      const b64 = dataUrl.split(",")[1];
-      folder.file(name, b64, {base64:true});
-    });
+    for(const item of items){
+      const blob = await canvasToBlob(item.canvas);
+      folder.file(`${safeFile(item.cam.label)}_POV.png`, blob);
+    }
 
-    zip.generateAsync({type:"blob"}).then(blob => {
-      const filename = `${baseFolder}_Storyboard.zip`;
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      setTimeout(() => {
-        URL.revokeObjectURL(a.href);
-        a.remove();
-      }, 1000);
-    });
+    const out = await zip.generateAsync({ type: "blob" });
+    if(typeof saveAs === "function") saveAs(out, `${safeFile(state.sceneName || "Scene")}_Storyboard.zip`);
+    else downloadBlob(out, `${safeFile(state.sceneName || "Scene")}_Storyboard.zip`);
   }
 
   function closeStoryboard(){
@@ -2455,21 +2221,6 @@ function downloadStoryboardZip(){
       if(!btn) return;
 
       const a = btn.getAttribute("data-action");
-
-      // actions that require parameters
-      if(a === "toggleLayerVisibility"){
-        toggleLayerVisibility(btn.getAttribute("data-layer") || btn.dataset.layer || "1");
-        return;
-      }
-      if(a === "downloadStoryboardFrame"){
-        downloadStoryboardFrame(btn.getAttribute("data-frame"));
-        return;
-      }
-      if(a === "focusOnCameraFrame"){
-        focusOnCameraFrame(btn.getAttribute("data-camid"));
-        return;
-      }
-
       const actions = {
         toggleSceneMenu: openSceneMenu,
         createNewScene,
@@ -2499,10 +2250,6 @@ function downloadStoryboardZip(){
         addActor: () => addObject("actor", { label:"Actor", color:"#f43f5e" }),
         addCamera: () => addObject("camera", { label:"CAM", sensor:"FF", focal:35 }),
         saveScene,
-        toggleTheme,
-        toggleInfo,
-        downloadStoryboardFrame,
-        focusOnCameraFrame,
       };
       if(actions[a]) actions[a]();
     });
@@ -2596,7 +2343,6 @@ function downloadStoryboardZip(){
 
   // ---------- Boot ----------
   function init(){
-    loadUiPrefs();
     centerView();
     updateTransform();
 
